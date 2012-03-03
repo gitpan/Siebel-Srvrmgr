@@ -1,0 +1,38 @@
+---
+abstract: 'utilities to be used with the Siebel srvrmgr program'
+author:
+  - 'Alceu Rodrigues de Freitas Junior <arfreitas@cpan.org>'
+build_requires:
+  Test::Exception: 0.27
+  Test::More: 0
+  Test::Output: 1.01
+  Test::Pod: 1.22
+  Test::Pod::Coverage: 1.08
+configure_requires:
+  ExtUtils::MakeMaker: 0
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.120351'
+license: unknown
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Siebel-Srvrmgr
+no_index:
+  directory:
+    - t
+    - inc
+requires:
+  Carp: 1.04
+  FSA::Rules: 0.29
+  Moose: 2.0401
+  Moose::Util::TypeConstraints: 2.0402
+  MooseX::AbstractFactory: 0.004
+  MooseX::Params::Validate: 0.15
+  MooseX::Storage: 0.3
+  namespace::autoclean: 0.13
+resources:
+  bugtracker: http://code.google.com/p/siebel-monitoring-tools/issues/list
+  homepage: http://code.google.com/p/siebel-monitoring-tools/
+  license: http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+  repository: http://code.google.com/p/siebel-monitoring-tools/source/browse/
+version: 0.01
