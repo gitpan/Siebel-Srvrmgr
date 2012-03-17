@@ -26,7 +26,6 @@ lib/Siebel/Srvrmgr/ListParser/OutputFactory.pm
 lib/Siebel/Srvrmgr/Regexes.pm
 Makefile.PL
 MANIFEST			This list of files
-META.yml
 README
 t/Action.t
 t/ActionDumper.t
@@ -76,4 +75,5 @@ t/Test/LoadPreferences.pm
 t/Test/Output.pm
 t/Test/OutputFactory.pm
 t/Test/Server.pm
+META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

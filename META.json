@@ -22,6 +22,7 @@
    "prereqs" : {
       "build" : {
          "requires" : {
+            "Test::Class" : "0.36",
             "Test::Exception" : "0.27",
             "Test::Most" : "0.25",
             "Test::Output" : "1.01",
@@ -60,5 +61,5 @@
          "url" : "http://code.google.com/p/siebel-monitoring-tools/source/browse/"
       }
    },
-   "version" : "0.02"
+   "version" : "0.03"
 }
