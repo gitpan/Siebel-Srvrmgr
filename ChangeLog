@@ -1,0 +1,22 @@
+2012-03-20 21:52  alceu.freitas.jr@gmail.com
+
+	* lib/Siebel/Srvrmgr/Daemon.pm: -bug fix related to connection to a
+	  specific Siebel Server or to the Siebel Enterprise only. The
+	  class will have a new behavior based on the value of the
+	  attribute server
+	  -server attribute is not required anymore
+	  -POD was updated as well
+	  -now the class will warn if any Siebel error is returned by
+	  srvrmgr program
+
+2012-03-20 21:48  alceu.freitas.jr@gmail.com
+
+	* examples/export_comps.pl: bug fixes
+
+2012-03-20 21:47  alceu.freitas.jr@gmail.com
+
+	* examples/.Siebel_svrmgr.pref: initial release
+
+2012-03-20 21:46  alceu.freitas.jr@gmail.com
+
+	* lib/Siebel/Srvrmgr/ListParser/Output/ListComp.pm: Fixed POD
