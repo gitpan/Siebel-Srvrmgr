@@ -1,22 +1,107 @@
-2012-03-20 21:52  alceu.freitas.jr@gmail.com
+2012-06-24  alceu.freitas.jr@gmail.com
 
-	* lib/Siebel/Srvrmgr/Daemon.pm: -bug fix related to connection to a
-	  specific Siebel Server or to the Siebel Enterprise only. The
-	  class will have a new behavior based on the value of the
-	  attribute server
-	  -server attribute is not required anymore
-	  -POD was updated as well
-	  -now the class will warn if any Siebel error is returned by
-	  srvrmgr program
+	* ., lib/Siebel/Srvrmgr/Daemon/Action.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/CheckComps.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListComp/Server.pm,
+	  t/ActionCheckComps.t, t/Test/Action/CheckComps.pm,
+	  t/Test/ActionStash.pm, t/Test/Server.pm: -fixed minor bugs
+	  -added POD for CheckComps.pm
+	  -added missing automated tests
+	  -added Carp support for Action.pm (and it's subclasses)
 
-2012-03-20 21:48  alceu.freitas.jr@gmail.com
+2012-06-18  alceu.freitas.jr@gmail.com
 
-	* examples/export_comps.pl: bug fixes
+	* ., examples/comp_mon.xml, examples/comp_mon.xsd,
+	  lib/Siebel/Srvrmgr/Daemon.pm,
+	  lib/Siebel/Srvrmgr/Daemon/ActionStash.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListComp.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListCompDef.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListCompTypes.pm,
+	  t/ActionStash.t, t/Daemon.t, t/Test/ActionStash.pm,
+	  t/Test/Daemon.pm, t/srvrmgr-mock.pl: - fixed minor bugs
+	  - added more tests
+	  - created srvrmgr-mock.pl for testing Siebel::Srvrmgr::Daemon
 
-2012-03-20 21:47  alceu.freitas.jr@gmail.com
+2012-05-15  alceu.freitas.jr@gmail.com
 
-	* examples/.Siebel_svrmgr.pref: initial release
+	* examples/comp_mon.pl: minor fixes and modifications to accept the
+	  new format of XML configuration file
 
-2012-03-20 21:46  alceu.freitas.jr@gmail.com
+2012-05-08  alceu.freitas.jr@gmail.com
 
-	* lib/Siebel/Srvrmgr/ListParser/Output/ListComp.pm: Fixed POD
+	* examples/comp_mon.pl, examples/comp_mon.xml,
+	  examples/comp_mon.xsd: Initial version released.
+	  comp_mon.pl must be revised due changes in comp_mon.xml (updated
+	  to use XML Schema validation with comp_mon.xsd)
+
+2012-04-27  alceu.freitas.jr@gmail.com
+
+	* lib/Siebel/Srvrmgr/Daemon.pm: -one more error being checked
+	* README, examples/export_comps.pl, lib/Siebel/Srvrmgr/Daemon.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/CheckComps.pm,
+	  lib/Siebel/Srvrmgr/Daemon/ActionFactory.pm: -more license
+	  information
+	  -fixed some POD errors
+	  -added additional debug information in Srvrmgr/Daemon.pm
+
+2012-04-26  alceu.freitas.jr@gmail.com
+
+	* Makefile.PL, README, gpl.txt, lib/Siebel/Srvrmgr.pm,
+	  lib/Siebel/Srvrmgr/Daemon.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/CheckComps.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/Dumper.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/ListCompDef.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/ListCompTypes.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/ListComps.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/ListParams.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/LoadPreferences.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/Serializable.pm,
+	  lib/Siebel/Srvrmgr/Daemon/ActionFactory.pm,
+	  lib/Siebel/Srvrmgr/Daemon/ActionStash.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Condition.pm,
+	  lib/Siebel/Srvrmgr/ListParser.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Buffer.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/Greetings.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListComp.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListComp/Comp.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListComp/Server.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListCompDef.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListCompTypes.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/ListParams.pm,
+	  lib/Siebel/Srvrmgr/ListParser/Output/LoadPreferences.pm,
+	  lib/Siebel/Srvrmgr/ListParser/OutputFactory.pm,
+	  lib/Siebel/Srvrmgr/Regexes.pm: -added license GPL 3 information
+
+2012-04-25  alceu.freitas.jr@gmail.com
+
+	* Makefile.PL: added MooseX::FollowPBP as dependency
+	* Makefile.PL: added MooseX::Singleton as dependency
+	* lib/Siebel/Srvrmgr/Daemon.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/CheckComps.pm,
+	  lib/Siebel/Srvrmgr/Daemon/ActionStash.pm: -added more error
+	  checking for Daemon.pm
+	  -added ActionStash.pm and using of it at CheckComps.pm
+
+2012-04-20  alceu.freitas.jr@gmail.com
+
+	* lib/Siebel/Srvrmgr/Daemon.pm: using die instead of warn in the
+	  case there are serious problems with srvrmgr.exe execution
+
+2012-04-19  alceu.freitas.jr@gmail.com
+
+	* lib/Siebel/Srvrmgr/Daemon.pm: added error treatment when the
+	  srvrmgr child process returns an error and exists
+
+2012-04-18  alceu.freitas.jr@gmail.com
+
+	* lib/Siebel/Srvrmgr/Daemon.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/CheckComps.pm,
+	  lib/Siebel/Srvrmgr/ListParser.pm: -modules will print output (to
+	  STDOUT or SDTERR) controlled by system variable
+	  SIEBEL_SRVRMGR_DEBUG
+	  -added new Action/CheckComps.pm (still experimental)
+	* lib/Siebel/Srvrmgr/Daemon/Action/ListComps.pm: Useless variable
+	  declaration

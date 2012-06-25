@@ -74,11 +74,11 @@ use POSIX ":sys_wait_h";
 # :TODO:29/2/2012 18:49:06:: implement debug messages
 
 # both variables below exist to deal with requested termination of the program gracefully
-$SIG{INT}  = \&_terminate;
-$SIG{PIPE} = \&_terminate;
+$SIG{INT}  = \&_term_INT;
+$SIG{PIPE} = \&_term_PIPE;
 
-our $SIG_CAUGHT = 0;
-our $SIG_PIPE   = 0;
+our $SIG_INT  = 0;
+our $SIG_PIPE = 0;
 
 =pod
 
@@ -258,7 +258,7 @@ has read_fh => (
 
 =pod
 
-=head2 pin
+=head2 pid
 
 An integer presenting the process id (PID) of the process created by the OS when the C<srvrmgr> program is executed.
 
@@ -508,11 +508,11 @@ sub run {
 
         unless ( -e $self->get_bin() ) {
 
-            warn 'Cannot find program ' . $self->get_bin() . " to execute\n";
-            return 0;
+            die 'Cannot find program ' . $self->get_bin() . " to execute\n";
 
         }
 
+# :TODO:25/4/2012 20:07:59:: try IPC::Open3 to try to read the STDERR for errors too
         if ( defined( $self->get_server() ) ) {
 
             $self->_set_pid(
@@ -543,14 +543,26 @@ sub run {
 
         }
 
-# :TODO:29/2/2012 18:31:56:: open2 is still returning a PID on Win32 even if the execution fails: must find a way to identify the error and return false here
+# :WORKAROUND:19/4/2012 19:38:04:: somehow the child process of srvrmgr has to be waited for one second and receive one kill 0 signal before
+# it dies when something goes wrong
+        sleep 1;
+        kill 0, $self->get_pid();
+
+        unless ( kill 0, $self->get_pid() ) {
+
+            die $self->get_bin()
+              . " process returned a fatal error: ${^CHILD_ERROR_NATIVE}\n";
+
+        }
+
         $self->_set_write($wtr);
         $self->_set_read($rdr);
 
     }
     else {
 
-        print 'Reusing ', $self->get_pid(), "\n";
+        print 'Reusing ', $self->get_pid(), "\n"
+          if ( $ENV{SIEBEL_SRVRMGR_DEBUG} );
 
     }
 
@@ -575,19 +587,52 @@ sub run {
 
     do {
 
-        exit if ($SIG_CAUGHT);
+        exit if ($SIG_INT);
 
       READ: while (<$rdr>) {
 
-            exit if ($SIG_CAUGHT);
+            exit if ($SIG_INT);
 
             s/\r\n//;
+            chomp();
 
-            # caught an error
+            # caught an specific error
             if (/^SBL\-\w{3}\-\d+/) {
 
-                warn "Caught an error from srvrmgr! Error message is:\n";
-                warn "$_\n";
+                if ( $ENV{SIEBEL_SRVRMGR_DEBUG} ) {
+
+                    warn "Caught an error from srvrmgr! Error message is:\n";
+                    warn "$_\n";
+
+                }
+
+                # could not find the Siebel server
+                if (/^SBL-ADM-02043.*/) {
+
+                    die "Unrecoverable failure... aborting...\n";
+
+                }
+
+                # could not find the Siebel Enterprise
+                if (/^SBL-ADM-02071.*/) {
+
+                    die "Unrecoverable failure... aborting...\n";
+
+                }
+
+                if (/^SBL-ADM-02049.*/) {
+
+                    die "Unrecoverable failure... aborting...\n";
+
+                }
+
+                # SBL-ADM-02751: Unable to open file
+                if (/^SBL-ADM-02751.*/) {
+
+                    die "Unrecoverable failure... aborting...\n";
+
+                }
+
                 last READ;
 
             }
@@ -733,38 +778,64 @@ sub DEMOLISH {
         syswrite $self->get_write(), "exit\n";
         syswrite $self->get_write(), "\n";
 
-        my $rdr = $self->get_read()
-          ;    # diamond operator does not like method calls inside it
+        # after the exit command the srvrmgr program already exited
+        unless ($SIG_PIPE) {
 
-        while (<$rdr>) {
+            if ( $ENV{SIEBEL_SRVRMGR_DEBUG} ) {
 
-            if (/^Disconnecting from server\./) {
+                my $rdr = $self->get_read()
+                  ;    # diamond operator does not like method calls inside it
 
-                print $_;
-                last;
+                while (<$rdr>) {
+
+                    if (/^Disconnecting from server\./) {
+
+                        print $_;
+                        last;
+
+                    }
+                    else {
+
+                        print $_;
+
+                    }
+
+                }
 
             }
-            else {
 
-                print $_;
+            close( $self->get_read() );
+            close( $self->get_write() );
 
-            }
+            if ( kill 0, $self->get_pid() ) {
 
-        }
+# :TODO:26/4/2012 19:33:24:: this hardcode of sleep should be removed or used as a parameter
+                sleep(1);
 
-        close( $self->get_read() );
-        close( $self->get_write() );
+                print "srvrmgr is still running, trying to kill it\n"
+                  if ( $ENV{SIEBEL_SRVRMGR_DEBUG} );
 
-        if ( kill 0, $self->get_pid() ) {
+                my $ret = waitpid( $self->get_pid(), WNOHANG );
 
-            sleep(5);
+                if ( $ENV{SIEBEL_SRVRMGR_DEBUG} ) {
 
-            print "srvrmgr is still running, trying to kill it\n";
+                    if ( $? == 0 ) {
 
-            my $ret = waitpid( $self->get_pid(), WNOHANG );
+                        print "OK\n";
 
-            print
+                    }
+                    else {
+
+                        print
+"Something went bad with child process: look for zombie process on the computer\n";
+
+                    }
+
+                    print
 "ripped PID = $ret, status = $?, child error native = ${^CHILD_ERROR_NATIVE}\n";
+                }
+
+            }
 
         }
 
@@ -772,11 +843,19 @@ sub DEMOLISH {
 
 }
 
-sub _terminate {
+sub _term_INT {
 
     my ($sig) = @_;
-    warn "The Interrupt was caught: <$sig>\n";
-    $SIG_CAUGHT = 1;
+    warn "The Interrupt was caught: <$sig>\n" if ( $ENV{SIEBEL_SRVRMGR_DEBUG} );
+    $SIG_INT = 1;
+
+}
+
+sub _term_PIPE {
+
+    my ($sig) = @_;
+    warn "The Interrupt was caught: <$sig>\n" if ( $ENV{SIEBEL_SRVRMGR_DEBUG} );
+    $SIG_PIPE = 1;
 
 }
 
@@ -825,6 +904,29 @@ L<Siebel::Srvrmgr::Regexes>
 L<POSIX>
 
 =back
+
+=head1 AUTHOR
+
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+
+This file is part of Siebel Monitoring Tools.
+
+Siebel Monitoring Tools is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Siebel Monitoring Tools is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 

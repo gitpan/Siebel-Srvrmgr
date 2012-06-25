@@ -12,7 +12,9 @@ my %config = (
         MooseX::Storage              => 0.30,
         Moose::Util::TypeConstraints => 2.0402,
         MooseX::Params::Validate     => 0.15,
-        MooseX::AbstractFactory      => 0.004000
+        MooseX::AbstractFactory      => 0.004000,
+        MooseX::Singleton            => 0.27,
+        MooseX::FollowPBP            => 0.05
     },
     BUILD_REQUIRES => {
         Test::Exception     => 0.27,
@@ -24,7 +26,7 @@ my %config = (
     },
     META_MERGE => {
         resources => {
-            license  => 'http://www.gnu.org/licenses/old-licenses/gpl-2.0.html',
+            license  => 'http://www.gnu.org/licenses/gpl.txt',
             homepage => 'http://code.google.com/p/siebel-monitoring-tools/',
             bugtracker =>
               'http://code.google.com/p/siebel-monitoring-tools/issues/list',
@@ -32,7 +34,7 @@ my %config = (
               'http://code.google.com/p/siebel-monitoring-tools/source/browse/'
         },
     },
-    LICENSE => 'GNU General Public License (GPL)',
+    LICENSE => 'GNU General Public License Version 3 (GPL v3)',
     dist    => { SUFFIX => '.gz', COMPRESS => 'gzip --best' },
     (
         $] >= 5.010001

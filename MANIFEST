@@ -1,9 +1,17 @@
 ChangeLog
 examples/.Siebel_svrmgr.pref
 examples/export_comps.pl
+examples/nagios/commands.cfg
+examples/nagios/comp_mon.pl
+examples/nagios/comp_mon.xml
+examples/nagios/comp_mon.xsd
+examples/nagios/NSC.ini
+examples/nagios/README.txt
+gpl.txt
 lib/Siebel/Srvrmgr.pm
 lib/Siebel/Srvrmgr/Daemon.pm
 lib/Siebel/Srvrmgr/Daemon/Action.pm
+lib/Siebel/Srvrmgr/Daemon/Action/CheckComps.pm
 lib/Siebel/Srvrmgr/Daemon/Action/Dumper.pm
 lib/Siebel/Srvrmgr/Daemon/Action/ListCompDef.pm
 lib/Siebel/Srvrmgr/Daemon/Action/ListComps.pm
@@ -12,6 +20,7 @@ lib/Siebel/Srvrmgr/Daemon/Action/ListParams.pm
 lib/Siebel/Srvrmgr/Daemon/Action/LoadPreferences.pm
 lib/Siebel/Srvrmgr/Daemon/Action/Serializable.pm
 lib/Siebel/Srvrmgr/Daemon/ActionFactory.pm
+lib/Siebel/Srvrmgr/Daemon/ActionStash.pm
 lib/Siebel/Srvrmgr/Daemon/Condition.pm
 lib/Siebel/Srvrmgr/ListParser.pm
 lib/Siebel/Srvrmgr/ListParser/Buffer.pm
@@ -31,6 +40,7 @@ MANIFEST			This list of files
 pm_to_blib
 README
 t/Action.t
+t/ActionCheckComps.t
 t/ActionDumper.t
 t/ActionDumper2.t
 t/ActionFactory.t
@@ -39,6 +49,7 @@ t/ActionListCompDef.t
 t/ActionListCompTypes.t
 t/ActionListParams.t
 t/ActionLoadPreferences.t
+t/ActionStash.t
 t/Buffer.t
 t/Comp.t
 t/Condition.t
@@ -56,7 +67,9 @@ t/pod-coverage.t
 t/pod.t
 t/Regexes.t
 t/Server.t
+t/srvrmgr-mock.pl
 t/Test/Action.pm
+t/Test/Action/CheckComps.pm
 t/Test/Action/Dumper.pm
 t/Test/Action/ListComp.pm
 t/Test/Action/ListCompDef.pm
@@ -64,6 +77,7 @@ t/Test/Action/ListCompTypes.pm
 t/Test/Action/ListParams.pm
 t/Test/Action/LoadPreferences.pm
 t/Test/ActionFactory.pm
+t/Test/ActionStash.pm
 t/Test/Buffer.pm
 t/Test/Comp.pm
 t/Test/Condition.pm

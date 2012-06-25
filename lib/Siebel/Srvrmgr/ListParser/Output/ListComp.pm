@@ -38,7 +38,7 @@ can see below:
 		CC_ALIAS (31):  Component alias
 		CC_NAME (76):  Component name
 		CT_ALIAS (31):  Component type alias
-		CG_ALIAS (31):  Component GRoup Alias
+		CG_ALIAS (31):  Component Group Alias
 		CC_RUNMODE (31):  Component run mode (enum)
 		CP_DISP_RUN_STATE (61):  Component display run state
 		CP_NUM_RUN_TASKS (11):  Current number of running tasks
@@ -339,6 +339,9 @@ sub parse {
 
                 my $columns_ref = $self->get_comp_attribs();
 
+                confess "Cannot continue without defining fields names"
+                  unless ( defined($columns_ref) );
+
                 if (@fields_values) {
 
                     for ( my $i = 0 ; $i < $list_len ; $i++ ) {
@@ -392,6 +395,28 @@ L<Siebel::Srvrmgr::ListParser::Output::ListComp::Comp>
 
 =back
 
+=head1 AUTHOR
+
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+
+This file is part of Siebel Monitoring Tools.
+
+Siebel Monitoring Tools is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Siebel Monitoring Tools is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
