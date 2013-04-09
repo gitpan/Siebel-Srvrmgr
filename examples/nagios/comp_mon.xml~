@@ -29,6 +29,8 @@
 				<ns1:component name="GenTrig" description="Generate Triggers" ComponentGroup="Workflow" criticality="1"/>
 				<ns1:component name="JMSReceiver" description="JMS Receiver" ComponentGroup="EAI" criticality="4"/>
 				<ns1:component name="ListImportSvcMgr" description="List Import Service Manager" ComponentGroup="MktgSrv" criticality="2"/>
+				<ns1:component name="SERWorkMonAsset" description="SER Workflow Monitor Agent Asset" ComponentGroup="Workflow" criticality="2"/>
+				<ns1:component name="SERWorkMonOrderItem" description="SER Workflow Monitor Agent Order Item" ComponentGroup="Workflow" criticality="2"/>
 				<ns1:component name="ServerMgr" description="Server Manager" ComponentGroup="System" criticality="4"/>
 				<ns1:component name="SRBroker" description="Server Request Broker" ComponentGroup="System" criticality="4"/>
 				<ns1:component name="SRProc" description="Server Request Processor" ComponentGroup="SystemAux" criticality="4"/>
@@ -75,6 +77,8 @@
 				<ns1:component name="GenTrig" description="Generate Triggers" ComponentGroup="Workflow" criticality="1"/>
 				<ns1:component name="JMSReceiver" description="JMS Receiver" ComponentGroup="EAI" criticality="4"/>
 				<ns1:component name="ListImportSvcMgr" description="List Import Service Manager" ComponentGroup="MktgSrv" criticality="1"/>
+				<ns1:component name="SERWorkMonAsset" description="SER Workflow Monitor Agent Asset" ComponentGroup="Workflow" criticality="2"/>
+				<ns1:component name="SERWorkMonOrderItem" description="SER Workflow Monitor Agent Order Item" ComponentGroup="Workflow" criticality="2"/>
 				<ns1:component name="ServerMgr" description="Server Manager" ComponentGroup="System" criticality="4"/>
 				<ns1:component name="SRBroker" description="Server Request Broker" ComponentGroup="System" criticality="4"/>
 				<ns1:component name="SRProc" description="Server Request Processor" ComponentGroup="SystemAux" criticality="4"/>
@@ -115,6 +119,8 @@
 				<ns1:component name="GenTrig" description="Generate Triggers" ComponentGroup="Workflow" criticality=""/>
 				<ns1:component name="JMSReceiver" description="JMS Receiver" ComponentGroup="EAI" criticality=""/>
 				<ns1:component name="ListImportSvcMgr" description="List Import Service Manager" ComponentGroup="MktgSrv" criticality=""/>
+				<ns1:component name="SERWorkMonAsset" description="SER Workflow Monitor Agent Asset" ComponentGroup="Workflow" criticality=""/>
+				<ns1:component name="SERWorkMonOrderItem" description="SER Workflow Monitor Agent Order Item" ComponentGroup="Workflow" criticality=""/>
 				<ns1:component name="ServerMgr" description="Server Manager" ComponentGroup="System" criticality=""/>
 				<ns1:component name="SRBroker" description="Server Request Broker" ComponentGroup="System" criticality=""/>
 				<ns1:component name="SRProc" description="Server Request Processor" ComponentGroup="SystemAux" criticality=""/>
@@ -161,6 +167,8 @@
 				<ns1:component name="GenTrig" description="Generate Triggers" ComponentGroup="Workflow" criticality="1"/>
 				<ns1:component name="JMSReceiver" description="JMS Receiver" ComponentGroup="EAI" criticality="4"/>
 				<ns1:component name="ListImportSvcMgr" description="List Import Service Manager" ComponentGroup="MktgSrv" criticality="2"/>
+				<ns1:component name="SERWorkMonAsset" description="SER Workflow Monitor Agent Asset" ComponentGroup="Workflow" criticality="4"/>
+				<ns1:component name="SERWorkMonOrderItem" description="SER Workflow Monitor Agent Order Item" ComponentGroup="Workflow" criticality="4"/>
 				<ns1:component name="ServerMgr" description="Server Manager" ComponentGroup="System" criticality="4"/>
 				<ns1:component name="SRBroker" description="Server Request Broker" ComponentGroup="System" criticality="4"/>
 				<ns1:component name="SRProc" description="Server Request Processor" ComponentGroup="SystemAux" criticality="4"/>
