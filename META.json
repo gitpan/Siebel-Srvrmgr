@@ -6,7 +6,7 @@
    "dynamic_config" : 1,
    "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.112150",
    "license" : [
-      "unknown"
+      "open_source"
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
@@ -24,6 +24,7 @@
          "requires" : {
             "Test::Class" : "0.36",
             "Test::Exception" : "0.27",
+            "Test::Moose" : "2.0801",
             "Test::Most" : "0.25",
             "Test::Output" : "1.01",
             "Test::Pod" : "1.22",
@@ -46,7 +47,6 @@
             "MooseX::Params::Validate" : "0.15",
             "MooseX::Singleton" : "0.27",
             "MooseX::Storage" : "0.3",
-            "Siebel::AssertOS" : "0.02",
             "namespace::autoclean" : "0.13",
             "perl" : "5.01"
          }
@@ -65,5 +65,5 @@
          "url" : "http://code.google.com/p/siebel-monitoring-tools/source/browse/"
       }
    },
-   "version" : "0.06"
+   "version" : "0.07"
 }

@@ -7,7 +7,7 @@ use feature 'switch';
 
 =head1 NAME
 
-Siebel::Srvrmgr::ListParser::Output::ListCompTypes - subclass to parse list comp types command
+Siebel::Srvrmgr::ListParser::Output::ListServers - subclass to parse list servers command
 
 =cut
 
@@ -21,17 +21,7 @@ See L<Siebel::Srvrmgr::ListParser::Output> for examples.
 
 =head1 DESCRIPTION
 
-This subclass of L<Siebel::Srvrmgr::ListParser::Output> parses the output of the command C<list comp types>.
-
-This is the list configuration of the C<srvrmgr> expected by the module:
-
-	srvrmgr> configure list comp type
-		CT_NAME (76):  Component type name
-		CT_RUNMODE (31):  Supported run mode
-		CT_ALIAS (31):  Component type alias
-		CT_DESC_TEXT (251):  Description of component type
-
-If the configuration is not setup as this, the parsing will fail and the module may raise exceptions.
+This subclass of L<Siebel::Srvrmgr::ListParser::Output> parses the output of the command C<list servers>.
 
 =head1 ATTRIBUTES
 
@@ -51,6 +41,23 @@ has attribs => (
 =pod
 
 =head1 METHODS
+
+All methods from superclass plus some additional ones described below.
+
+The hash reference returned by C<get_data_parsed> will look like that:
+
+	siebfoobar' => HASH
+	  'end_time' => ''
+	  'host_name' => 'siebfoobar'
+	  'install_dir' => '/app/siebel/siebsrvr'
+	  'sblmgr_pid' => 20452
+	  'sblsrvr_group_name' => ''
+	  'sblsrvr_state' => 'Running'
+	  'sblsrvr_status' => '8.1.1.7 [21238] LANG_INDEPENDENT'
+	  'start_time' => '2013-04-22 15:32:25'
+	  'sv_disp_state' => 'Running'
+
+where the keys are the Siebel servers names, each one holding a reference to another hash with the keys shown above.
 
 =head2 get_attribs
 

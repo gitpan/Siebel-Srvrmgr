@@ -1,3 +1,5 @@
+use lib inc; use Devel::AssertOS qw(Linux AIX Solaris HPUX MSWin32);
+
 use 5.010;
 use ExtUtils::MakeMaker;
 
@@ -15,8 +17,7 @@ my %config = (
         MooseX::Params::Validate     => 0.15,
         MooseX::AbstractFactory      => 0.004000,
         MooseX::Singleton            => 0.27,
-        MooseX::FollowPBP            => 0.05,
-        Siebel::AssertOS             => 0.02
+        MooseX::FollowPBP            => 0.05
     },
     BUILD_REQUIRES => {
         Test::Exception     => 0.27,
@@ -24,7 +25,8 @@ my %config = (
         Test::Pod           => 1.22,
         Test::Pod::Coverage => 1.08,
         Test::Output        => 1.01,
-        Test::Class         => 0.36
+        Test::Class         => 0.36,
+        Test::Moose         => 2.0801
     },
     META_MERGE => {
         resources => {
@@ -36,8 +38,7 @@ my %config = (
               'http://code.google.com/p/siebel-monitoring-tools/source/browse/'
         },
     },
-    LICENSE => 'GNU General Public License Version 3 (GPL v3)',
-    dist    => { SUFFIX => '.gz', COMPRESS => 'gzip --best' },
+    dist => { SUFFIX => '.gz', COMPRESS => 'gzip --best' },
     (
         $] >= 5.010
         ?    ## Add these new keywords supported since 5.005
@@ -48,7 +49,8 @@ my %config = (
           )
         : ()
     ),
-    NO_MYMETA => 1
+    NO_MYMETA => 1,
+    ( $ExtUtils::MakeMaker::VERSION >= 6.3002 ? ( 'LICENSE' => 'gpl', ) : () )
 );
 
 WriteMakefile(%config);

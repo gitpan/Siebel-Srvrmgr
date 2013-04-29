@@ -1,7 +1,6 @@
 package Siebel::Srvrmgr;
-use Siebel::AssertOS;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 =pod
 
