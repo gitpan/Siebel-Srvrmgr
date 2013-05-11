@@ -1,35 +1,4 @@
-cache/ClientAdmin-listParams.sto
-cache/CommConfigMgr-listParams.sto
-cache/CommOutboundMgr-listParams.sto
-cache/CommSessionMgr-listParams.sto
-cache/DbXtract-listParams.sto
-cache/EAIObjMgr_enu-listParams.sto
-cache/EIM-listParams.sto
-cache/ePharmaObjMgr_enu-listParams.sto
-cache/ePharmaObjMgr_esn-listParams.sto
-cache/ePharmaObjMgr_ptb-listParams.sto
-cache/FSMSrvr-listParams.sto
-cache/GenNewDb-listParams.sto
-cache/GenTrig-listParams.sto
-cache/listComp.sto_saoasdctt1
-cache/listCompDefs.sto
-cache/listCompTypes.sto
-cache/MailMgr-listParams.sto
-cache/PageMgr-listParams.sto
-cache/PDbXtract-listParams.sto
-cache/RepAgent-listParams.sto
-cache/ServerMgr-listParams.sto
-cache/SRBroker-listParams.sto
-cache/SRProc-listParams.sto
-cache/SynchMgr-listParams.sto
-cache/TxnMerge-listParams.sto
-cache/TxnProc-listParams.sto
-cache/TxnRoute-listParams.sto
-cache/UpgKitBldr-listParams.sto
-cache/WfProcBatchMgr-listParams.sto
-cache/WfProcMgr-listParams.sto
-cache/WorkActn-listParams.sto
-cache/WorkMon-listParams.sto
+ChangeLog
 examples/.Siebel_svrmgr.pref
 examples/export_comps.pl
 examples/lists_cmd.txt
@@ -87,12 +56,8 @@ lib/Siebel/Srvrmgr/ListParser/Output/LoadPreferences.pm
 lib/Siebel/Srvrmgr/ListParser/OutputFactory.pm
 lib/Siebel/Srvrmgr/Regexes.pm
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
 README
-SARM/SARM.7z
-SARM/sarmanalyzer.dbg
-SARM/sarmanalyzer.exe
-SARM/technote472_SARM.pdf
 t/Action.t
 t/ActionCheckComps.t
 t/ActionDumper.t
@@ -158,6 +123,5 @@ t/Test/Output.pm
 t/Test/OutputFactory.pm
 t/Test/Server.pm
 t/Test/Task.pm
-tmp/.Siebel_svrmgr.pref
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)
