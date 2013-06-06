@@ -65,10 +65,10 @@ The C<srvrmgr> program will be executed by using IPC: this means that this metho
 be done automatically when the instance of this class goes out of scope. The instance is also able to deal with C<INT> signal and close connection as appropriate: the class will first try to submit a C<exit> command
 through C<srvrmgr> program and if it's not terminated automatically the PID will be ripped.
 
+Logging of this class can be enabled by using L<Siebel::Srvrmgr> logging feature.
+
 =cut
 
-use warnings;
-use strict;
 use Moose;
 use IPC::Open2;
 use namespace::autoclean;
@@ -78,15 +78,26 @@ use Siebel::Srvrmgr::ListParser;
 use Siebel::Srvrmgr::Regexes qw(SRVRMGR_PROMPT LOAD_PREF_RESP);
 use Siebel::Srvrmgr::Daemon::Command;
 use POSIX ":sys_wait_h";
+use feature qw(say);
+use Log::Log4perl;
+use Siebel::Srvrmgr;
+use Data::Dumper;
 
-# :TODO:29/2/2012 18:49:06:: implement debug messages
+my $cfg = Siebel::Srvrmgr->logging_cfg();
 
-# both variables below exist to deal with requested termination of the program gracefully
+die "Could not start logging facilities"
+  unless ( Log::Log4perl->init_once( \$cfg ) );
+
+our $logger = Log::Log4perl->get_logger('Siebel::Srvrmgr::Daemon');
+
+# variables below exist to deal with requested termination of the program gracefully
 $SIG{INT}  = \&_term_INT;
 $SIG{PIPE} = \&_term_PIPE;
+$SIG{ALRM} = \&_term_ALARM;
 
-our $SIG_INT  = 0;
-our $SIG_PIPE = 0;
+our $SIG_INT   = 0;
+our $SIG_PIPE  = 0;
+our $SIG_ALARM = 0;
 
 =pod
 
@@ -205,7 +216,8 @@ has commands => (
     is       => 'rw',
     required => 1,
     reader   => 'get_commands',
-    writer   => 'set_commands'
+    writer   => 'set_commands',
+    trigger  => \&_setup_commands
 );
 
 =pod
@@ -345,6 +357,24 @@ has action_stack => (
 
 =pod
 
+=head2 child_timeout
+
+The time, in seconds, to wait after submitting a C<quit> command to srvrmgr before trying to kill the Pid associated with it.
+
+It defaults to one second.
+
+=cut
+
+has child_timeout => (
+    isa     => 'Int',
+    is      => 'rw',
+    writer  => 'set_child_timeout',
+    reader  => 'get_child_timeout',
+    default => 1
+);
+
+=pod
+
 =head1 METHODS
 
 =head2 get_server
@@ -439,15 +469,15 @@ Returns the content of the attribute C<cmd_stack>.
 
 Returns the content of the attribute C<params_stack>.
 
-=head2 setup_commands
+=head2 _setup_commands
 
-Populates the attributes C<cmd_stack>, C<action_stack> and C<params_stack> depending on the values available on the C<commands> attribute.
+"Private" method: populates the attributes C<cmd_stack>, C<action_stack> and C<params_stack> depending on the values available on the C<commands> attribute.
 
-This method must be invoked everytime the C<commands> attribute is changed.
+This method is internally invoked everytime the C<commands> attribute is changed.
 
 =cut
 
-sub setup_commands {
+sub _setup_commands {
 
     my $self     = shift;
     my $cmds_ref = $self->get_commands();
@@ -474,22 +504,6 @@ sub setup_commands {
 
 =pod
 
-=head2 BUILD
-
-This method is invoked right after the class instance is created. It invokes the method C<setup_commands>.
-
-=cut
-
-sub BUILD {
-
-    my $self = shift;
-
-    $self->setup_commands();
-
-}
-
-=pod
-
 =head2 run
 
 This method will try to connect to a Siebel Enterprise through C<srvrmgr> program (if it is the first time the method is invoke) or reuse an already open
@@ -500,6 +514,8 @@ Those operations will be executed in a loop as long the C<check> method from the
 
 =cut
 
+# :WORKAROUND:10/05/2013 15:23:52:: using a state machine with FSA::Rules is difficult here because it is necessary to loop over output from
+# srvrmgr but the program will hang if there is no output left to be read from srvrmgr.
 sub run {
 
     my $self = shift;
@@ -552,8 +568,8 @@ sub run {
 
         unless ( kill 0, $self->get_pid() ) {
 
-            die $self->get_bin()
-              . " process returned a fatal error: ${^CHILD_ERROR_NATIVE}\n";
+            $logger->logdie( $self->get_bin()
+                  . " process returned a fatal error: ${^CHILD_ERROR_NATIVE}" );
 
         }
 
@@ -563,8 +579,8 @@ sub run {
     }
     else {
 
-        print 'Reusing ', $self->get_pid(), "\n"
-          if ( $ENV{SIEBEL_SRVRMGR_DEBUG} );
+        $logger->debug( 'Reusing PID ', $self->get_pid() )
+          if ( $logger->is_debug() );
 
     }
 
@@ -587,51 +603,73 @@ sub run {
 
     my $rdr = $self->get_read();
 
+    my $read_timeout = 10;
+
     do {
 
         exit if ($SIG_INT);
+
+        $logger->debug(
+            "Setting $read_timeout seconds for read srvrmgr output time out")
+          if ( $logger->is_debug() );
+        alarm($read_timeout);
 
       READ: while (<$rdr>) {
 
             exit if ($SIG_INT);
 
-            s/\r\n//;
-            chomp();
+            my $line = $_;
+
+            $line =~ s/\r\n//;
+            $line =~ s/\n//;
+
+            if ( $logger->is_debug() ) {
+
+                if ( defined($line) ) {
+
+                    $logger->debug("Read [$line] from srvrmgr");
+
+                }
+                else {
+
+                    $logger->debug("Read [undefined content] from srvrmgr");
+
+                }
+
+            }
 
             # caught an specific error
-            if (/^SBL\-\w{3}\-\d+/) {
+            if ( $line =~ /^SBL\-\w{3}\-\d+/ ) {
 
-                if ( $ENV{SIEBEL_SRVRMGR_DEBUG} ) {
+                if ( $logger->is_debug() ) {
 
-                    warn "Caught an error from srvrmgr! Error message is:\n";
-                    warn "$_\n";
+                    $logger->fatal(
+"Caught an unrecoverable failure from srvrmgr! Error message is: [$line]"
+                    );
 
                 }
 
-                # could not find the Siebel server
                 if (/^SBL-ADM-02043.*/) {
 
-                    die "Unrecoverable failure... aborting...\n";
+                    $logger->logdie('Could not find the Siebel Server');
 
                 }
 
-                # could not find the Siebel Enterprise
                 if (/^SBL-ADM-02071.*/) {
 
-                    die "Unrecoverable failure... aborting...\n";
+                    $logger->logdie('Could not find the Siebel Enterprise');
 
                 }
 
                 if (/^SBL-ADM-02049.*/) {
 
-                    die "Unrecoverable failure... aborting...\n";
+                    $logger->logdie('Generic error');
 
                 }
 
-                # SBL-ADM-02751: Unable to open file
                 if (/^SBL-ADM-02751.*/) {
 
-                    die "Unrecoverable failure... aborting...\n";
+                    $logger->logdie('Unable to open file');
 
                 }
 
@@ -640,10 +678,10 @@ sub run {
             }
 
 # :TRICKY:29/06/2011 21:23:11:: bufferization in srvrmgr.exe ruins the day: the prompt will never come out unless a little push is given
-            if (/^\d+\srows?\sreturned\./) {
+            if ( $line =~ /^\d+\srows?\sreturned\./ ) {
 
                 # parsers will consider the lines below
-                push( @input_buffer, $_ );
+                push( @input_buffer, $line );
                 push( @input_buffer, '' );
 
                 syswrite $self->get_write(), "\n";
@@ -653,11 +691,27 @@ sub run {
 
             # prompt was returned, end of output
             # first execution should bring only informations about Siebel
-            if (/$prompt_regex/) {
+            if ( $line =~ /$prompt_regex/ ) {
 
                 unless ( defined($prompt) ) {
 
-                    $prompt = $_;
+                    $prompt = $line;
+
+# if prompt was undefined, that means that this is might be rest of output of previous command
+# and thus can be safely ignored
+                    if (@input_buffer) {
+
+                        if ( $input_buffer[0] eq '' ) {
+
+                            $logger->debug("Ignoring output [$line]");
+
+                            $condition->set_cmd_sent(0);
+                            @input_buffer = ();
+                            last READ;
+
+                        }
+
+                    }
 
                 }
 
@@ -681,9 +735,9 @@ sub run {
                     }
 
 # this is specific for load preferences response since it may contain the prompt string (Siebel 7.5.3.17)
-                    if (/$load_pref_regex/) {
+                    if ($line =~ /$load_pref_regex/) {
 
-                        push( @input_buffer, $_ );
+                        push( @input_buffer, $line );
                         syswrite $self->get_write(), "\n";
                         last READ;
 
@@ -694,11 +748,19 @@ sub run {
             }
             else {   # no prompt detection, keep reading output from srvrmgr.exe
 
-                push( @input_buffer, $_ );
+# :WARNING   :03/06/2013 18:22:40:: might cause a deadlock if the srvrmgr does not have anything else to read
+                push( @input_buffer, $line );
 
             }
 
         }    # end of READ block
+
+        my $time_remaining = 0;
+        $time_remaining = alarm(0);
+
+        $logger->debug(
+"Reseting the time out for reading srvrmgr output (time remaing $time_remaining seconds)"
+        ) if ( $logger->is_debug() );
 
         # below is the place for a Action object
         if ( scalar(@input_buffer) >= 1 ) {
@@ -712,6 +774,14 @@ sub run {
             my $class =
               $self->get_action_stack()->[ $condition->get_cmd_counter() ];
 
+            if ( $logger->is_debug() ) {
+
+                $logger->debug(
+"Creating Siebel::Srvrmgr::Daemon::Action subclass $class instance"
+                );
+
+            }
+
             my $action = Siebel::Srvrmgr::Daemon::ActionFactory->create(
                 $class,
                 {
@@ -721,21 +791,53 @@ sub run {
                 }
             );
 
+            if ( $logger->is_debug() ) {
+
+                $logger->debug('First three lines of buffer sent for parsing');
+
+                for ( my $i = 0 ; $i <= 2 ; $i++ ) {
+
+                    $logger->debug( $input_buffer[$i] );
+
+                }
+
+            }
+
             $condition->set_output_used( $action->do( \@input_buffer ) );
 
+            $logger->debug( 'Is output used? ' . $condition->is_output_used() )
+              if ( $logger->is_debug() );
             @input_buffer = ();
 
         }
+
+        $logger->debug('Finished processing buffer') if ( $logger->is_debug() );
 
 # :TODO:27/2/2012 17:43:42:: must deal with command stack when the loop is infinite (invoke reset method)
 
         # begin of session, sending command to the prompt
         unless ( $condition->is_cmd_sent() or $condition->is_last_cmd() ) {
 
+            $logger->debug('Preparing to execute command')
+              if ( $logger->is_debug() );
+
             $condition->add_cmd_counter()
               if ( $condition->can_increment() );
 
             my $cmd = $self->get_cmd_stack()->[ $condition->get_cmd_counter() ];
+
+            unless ( defined($cmd) ) {
+
+                $logger->logwarn('Invalid command received for execution');
+                $logger->logdie( Dumper( $self->get_cmd_stack() ) );
+
+            }
+            else {
+
+                $logger->debug("Submitting $cmd")
+                  if ( $logger->is_debug() );
+
+            }
 
             syswrite $self->get_write(), "$cmd\n";
 
@@ -743,11 +845,22 @@ sub run {
 # this is necessary to give a hint to the parser about the command submitted
             push( @input_buffer, $prompt . $cmd );
             $self->_set_last_cmd( $prompt . $cmd );
-            $condition->set_cmd_sent(1);
+
             $condition->set_output_used(0);
+            $condition->set_cmd_sent(1);
+
             sleep( $self->get_wait_time() );
 
         }
+        else {
+
+            $logger->debug('Not yet read to execute a command')
+              if ( $logger->is_debug() );
+
+        }
+
+        $logger->debug( 'Continue executing? ' . $condition->check() )
+          if ( $logger->is_debug() );
 
     } while ( $condition->check() );
 
@@ -773,73 +886,91 @@ sub DEMOLISH {
 
     my $self = shift;
 
-    if (    ( defined( $self->get_write() ) )
-        and ( defined( $self->get_read() ) ) )
+    # only the parent process has the pid defined
+    if (    ( defined( $self->get_pid() ) )
+        and ( $self->get_pid() =~ /\d+/ ) )
     {
 
-        syswrite $self->get_write(), "exit\n";
-        syswrite $self->get_write(), "\n";
+        if (    ( defined( $self->get_write() ) )
+            and ( defined( $self->get_read() ) )
+            and ( not($SIG_PIPE) )
+            and ( not($SIG_ALARM) ) )
+        {
 
-        # after the exit command the srvrmgr program already exited
-        unless ($SIG_PIPE) {
+            syswrite $self->get_write(), "exit\n";
+            syswrite $self->get_write(), "\n";
 
-            if ( $ENV{SIEBEL_SRVRMGR_DEBUG} ) {
+            # after the exit command the srvrmgr program already exited
+            unless ($SIG_PIPE) {
 
-                my $rdr = $self->get_read()
-                  ;    # diamond operator does not like method calls inside it
+                if ( $logger->is_debug() ) {
 
-                while (<$rdr>) {
+                    $logger->debug(
+                        'DEMOLISH invoked, getting last output from srvrmgr');
 
-                    if (/^Disconnecting from server\./) {
+                    my $rdr = $self->get_read()
+                      ;  # diamond operator does not like method calls inside it
 
-                        print $_;
-                        last;
+                    while (<$rdr>) {
 
-                    }
-                    else {
+                        if (/^Disconnecting from server\./) {
 
-                        print $_;
+                            $logger->debug($_);
+                            last;
 
-                    }
+                        }
+                        else {
 
-                }
+                            $logger->debug($_);
 
-            }
-
-            close( $self->get_read() );
-            close( $self->get_write() );
-
-            if ( kill 0, $self->get_pid() ) {
-
-# :TODO:26/4/2012 19:33:24:: this hardcode of sleep should be removed or used as a parameter
-                sleep(1);
-
-                print "srvrmgr is still running, trying to kill it\n"
-                  if ( $ENV{SIEBEL_SRVRMGR_DEBUG} );
-
-                my $ret = waitpid( $self->get_pid(), WNOHANG );
-
-                if ( $ENV{SIEBEL_SRVRMGR_DEBUG} ) {
-
-                    if ( $? == 0 ) {
-
-                        print "OK\n";
-
-                    }
-                    else {
-
-                        print
-"Something went bad with child process: look for zombie process on the computer\n";
+                        }
 
                     }
 
-                    print
-"ripped PID = $ret, status = $?, child error native = ${^CHILD_ERROR_NATIVE}\n";
                 }
 
             }
 
         }
+
+        close( $self->get_read() )  if ( defined( $self->get_read() ) );
+        close( $self->get_write() ) if ( defined( $self->get_write() ) );
+
+        if ( kill 0, $self->get_pid() ) {
+
+            sleep( $self->get_child_timeout() );
+
+            if ( $logger->is_debug() ) {
+
+                $logger->debug('srvrmgr is still running, trying to kill it');
+
+            }
+
+            my $ret = waitpid( $self->get_pid(), WNOHANG );
+
+            if ( $logger->is_debug() ) {
+
+                if ( $? == 0 ) {
+
+                    $logger->debug('child pid finished successfully');
+
+                }
+                else {
+
+                    $logger->debug(
+'Something went bad with child process: look for zombie process on the computer'
+                    );
+
+                }
+
+                $logger->debug(
+"Ripped PID = $ret, status = $?, child error native = ${^CHILD_ERROR_NATIVE}"
+                );
+            }
+
+        }
+
+        $logger->info("Program termination was forced") if ($SIG_ALARM);
 
     }
 
@@ -848,7 +979,13 @@ sub DEMOLISH {
 sub _term_INT {
 
     my ($sig) = @_;
-    warn "The Interrupt was caught: <$sig>\n" if ( $ENV{SIEBEL_SRVRMGR_DEBUG} );
+
+    if ( $logger->is_debug() ) {
+
+        $logger->debug("A interrupt (<$sig>) signal was caught");
+
+    }
+
     $SIG_INT = 1;
 
 }
@@ -856,8 +993,28 @@ sub _term_INT {
 sub _term_PIPE {
 
     my ($sig) = @_;
-    warn "The Interrupt was caught: <$sig>\n" if ( $ENV{SIEBEL_SRVRMGR_DEBUG} );
+    if ( $logger->is_debug() ) {
+
+        $logger->debug("A interrupt PIPE (<$sig>) signal was caught");
+
+    }
+
     $SIG_PIPE = 1;
+
+}
+
+sub _term_ALARM {
+
+    my ($sig) = @_;
+
+    if ( $logger->is_debug() ) {
+
+        $logger->warn("Reading from srvrmgr timed-out: caught <$sig> signal");
+        $logger->warn('Terminating program execution');
+
+    }
+
+    die 'SIGALRM caught';
 
 }
 

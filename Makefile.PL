@@ -1,32 +1,37 @@
-use lib inc; use Devel::AssertOS qw(Linux AIX Solaris HPUX MSWin32);
+use lib 'inc';
+use Devel::AssertOS qw(Linux AIX Solaris HPUX MSWin32);
 
 use 5.010;
+use warnings;
+use strict;
 use ExtUtils::MakeMaker;
 
 my %config = (
     NAME             => 'Siebel::Srvrmgr',
     VERSION_FROM     => 'lib/Siebel/Srvrmgr.pm',    # finds $VERSION
-    MIN_PERL_VERSION => 5.010,
+    MIN_PERL_VERSION => 5.016,
     PREREQ_PM        => {
-        Carp                         => 1.04,
-        namespace::autoclean         => 0.13,
-        Moose                        => 2.0401,
-        FSA::Rules                   => 0.29,
-        MooseX::Storage              => 0.30,
-        Moose::Util::TypeConstraints => 2.0402,
-        MooseX::Params::Validate     => 0.15,
-        MooseX::AbstractFactory      => 0.004000,
-        MooseX::Singleton            => 0.27,
-        MooseX::FollowPBP            => 0.05
+        'namespace::autoclean'         => 0.13,
+        'Moose'                        => 2.0401,
+        'FSA::Rules'                   => 0.29,
+        'MooseX::Storage'              => 0.33,
+        'Moose::Util::TypeConstraints' => 2.0402,
+        'MooseX::Params::Validate'     => 0.15,
+        'MooseX::AbstractFactory'      => 0.004000,
+        'MooseX::Singleton'            => 0.27,
+        'MooseX::FollowPBP'            => 0.05,
+        'Log::Log4perl'                => 1.41,
+        'Log::Dispatch'                => 2.39,
+        'YAML::Syck'                   => 1.25
     },
     BUILD_REQUIRES => {
-        Test::Exception     => 0.27,
-        Test::Most          => 0.25,
-        Test::Pod           => 1.22,
-        Test::Pod::Coverage => 1.08,
-        Test::Output        => 1.01,
-        Test::Class         => 0.36,
-        Test::Moose         => 2.0801
+        'Test::Exception'     => 0.27,
+        'Test::Most'          => 0.25,
+        'Test::Pod'           => 1.22,
+        'Test::Pod::Coverage' => 1.08,
+        'Test::Output'        => 1.01,
+        'Test::Class'         => 0.36,
+        'Test::Moose'         => 2.0801
     },
     META_MERGE => {
         resources => {

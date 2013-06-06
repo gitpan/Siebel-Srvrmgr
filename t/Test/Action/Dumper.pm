@@ -1,43 +1,43 @@
 package Test::Action::Dumper;
 
-use base 'Test::Class';
-use Test::Most;
-use Siebel::Srvrmgr::ListParser;
+use base 'Test::Action';
+use Test::More;
 
 sub class { 'Siebel::Srvrmgr::Daemon::Action::Dumper' }
 
-sub startup : Tests(startup => 1) {
+sub class_methods : Test(+1) {
+
     my $test = shift;
-    use_ok $test->class;
-}
 
-sub constructor : Tests(3) {
+# :WORKAROUND:03-06-2013:arfreitas: Test::Output is not working, so redirecting STDOUT to avoid having problems with TAP
+    close(STDOUT);
+    my $test_data;
+    open( STDOUT, '>', \$test_data )
+      or die "Failed to redirect STDOUT to in-memory file: $!";
+    $test->SUPER::class_methods();
+    close(STDOUT);
 
-    my $test  = shift;
-    my $class = $test->class;
+    my @data = <DATA>;
+    close(DATA);
+    close(STDOUT);
+    $test_data = undef;
+    open( STDOUT, '>', \$test_data )
+      or die "Failed to redirect STDOUT to in-memory file: $!";
+    $test->{action}->do( \@data );
+    close(STDOUT);
 
-    can_ok( $class, qw(new get_params get_parser get_params do) );
-
-    my $action;
-
-    ok(
-        $action = $class->new(
-            {
-                parser =>
-                  Siebel::Srvrmgr::ListParser->new( { is_warn_enabled => 1 } )
-            }
-        ),
-        'the constructor should suceed'
+    like(
+        $test_data,
+        qr/^\$VAR1\s\=\s\[\n\s+\'\n\'\,\n\s+\'SV_NAME\s+CC_ALIAS/,
+        'Dumper output matches expected regular expression'
     );
-
-    isa_ok( $action->get_parser(), 'Siebel::Srvrmgr::ListParser',
-        'get_parser returned object' );
 
 }
 
 1;
 
 __DATA__
+
 SV_NAME  CC_ALIAS        TK_TASKID  TK_PID  TK_DISP_RUNSTATE  CC_RUNMODE   TK_START_TIME        TK_END_TIME          TK_STATUS                                                                                CG_ALIAS   TK_PARENT_T  CC_INCARN_NO  TK_LABEL                  TK_TASKTYPE  TK_PING_TIM  
 -------  --------------  ---------  ------  ----------------  -----------  -------------------  -------------------  ---------------------------------------------------------------------------------------  ---------  -----------  ------------  ------------------------  -----------  -----------  
 SUsrvr   ServerMgr       32505858   916     Running           Interactive  2012-02-13 08:14:36  2000-00-00 00:00:00  Processing "List Tasks" command                                                          System                  0                                       Normal                    
