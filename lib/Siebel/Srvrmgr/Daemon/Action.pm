@@ -50,7 +50,6 @@ infinite loop.
 =cut
 
 use Moose;
-use MooseX::Params::Validate;
 use namespace::autoclean;
 use Carp;
 
@@ -83,7 +82,12 @@ This attribute is read-only.
 
 =cut
 
-has params => ( isa => 'ArrayRef', is => 'ro', reader => 'get_params' );
+has params => (
+    isa     => 'ArrayRef',
+    is      => 'ro',
+    reader  => 'get_params',
+    default => sub { [] }
+);
 
 =pod
 
@@ -102,20 +106,66 @@ Returns the array reference stored in the C<params> attribute.
 This method expects to receive a array reference (with the content to be parsed) as parameter and it will do something with it. Usually this should be
 identify the type of output received, giving it to the proper parse and processing it somehow.
 
-Every C<do> method must return true (1) if output was used, otherwise false (0);
+Every C<do> method must return true (1) if output was used, otherwise false (0).
 
-Actually this method will only validate if the parameter is an array reference or not. Subclasses must override
-C<do> to actually to something with the array reference content (see C<override> method in L<Moose::Manual::MethodModifiers>).
+This method does:
+
+=over
+
+=item parsing of the content of the buffer with the parser returned by C<get_parser> method
+
+=item invokes the C<do_parsed> method passing the tree returned from the parser
+
+=item clear the parser with the C<clear_parsed_tree> method.
+
+=item returns the returned value of the C<do_parsed> method.
+
+=back
 
 =cut
 
 sub do {
 
     my $self = shift;
+    my $buffer = shift;
 
-    my ($buffer) = pos_validated_list( \@_, { isa => 'ArrayRef' } );
+    $self->get_parser()->parse($buffer);
 
-    return 1;
+    my $tree = $self->get_parser()->get_parsed_tree();
+
+    my $was_found = 0;
+
+    foreach my $item ( @{$tree} ) {
+
+        $was_found = $self->do_parsed( $item );
+        last if ($was_found);
+
+    }
+
+    $self->get_parser()->clear_parsed_tree();
+
+    return $was_found;
+
+}
+
+=pod
+
+=head2 do_parsed
+
+This method must be overrided by subclasses or it will C<die> with trace.
+
+It expects an array reference with the parsed tree given by C<get_parsed_tree> of a L<Siebel::Srvrmgr::ListParser> instance.
+
+This method is invoked internally by C<do> method, but is also usable directly if the parsed tree is given as expected.
+
+If the output is used, this method must returns true, otherwise false.
+
+=cut
+
+sub do_parsed {
+
+    confess
+'do_parsed must be overrided by subclasses of Siebel::Srvrmgr::Daemon::Action';
 
 }
 
@@ -127,7 +177,7 @@ This class may be changed to a role instead of a superclass in the future since 
 
 =head1 SEE ALSO
 
-=over 6
+=over
 
 =item *
 
@@ -136,10 +186,6 @@ L<Moose>
 =item *
 
 L<Moose::Manual::MethodModifiers>
-
-=item *
-
-L<MooseX::Params::Validate>
 
 =item *
 
@@ -157,7 +203,7 @@ L<Siebel::Srvrmgr::ListParser::Output>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 

@@ -9,7 +9,7 @@ Siebel::Srvrmgr::ListParser::Output::ListCompDef - subclass to parse component d
 =cut
 
 use Moose;
-use feature 'switch';
+use namespace::autoclean;
 
 extends 'Siebel::Srvrmgr::ListParser::Output';
 
@@ -70,6 +70,34 @@ sub _set_header_regex {
 
 }
 
+=pod
+
+=head2 _define_pattern
+
+This method overrides the method from the parent class. The pattern is strict following the expected configuration from the "list comp def" command
+from srvrmgr, as described in the DESCRIPTION.
+
+=cut
+
+override '_define_pattern' => sub {
+
+    my $self = shift;
+	# to make it easier for maintainence
+    my @sizes = ( 76, 76, 31, 31, 61, 251, 76, 31, 23 );
+    my $pattern;
+
+# :WARNING   :09/05/2013 12:19:37:: + 2 because of the spaces after the "---" that will be trimmed, but this will cause problems
+# with the split_fields method if col_seps is different from two space
+    foreach (@sizes) {
+
+        $pattern .= 'A' . ( $_ + 2 );
+
+    }
+
+    $self->_set_fields_pattern($pattern);
+
+};
+
 sub _parse_data {
 
     my $self       = shift;
@@ -123,11 +151,11 @@ L<Moose>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 This file is part of Siebel Monitoring Tools.
 
@@ -142,7 +170,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
+along with Siebel Monitoring Tools.  If not, see L<http://www.gnu.org/licenses/>.
 
 =cut
 

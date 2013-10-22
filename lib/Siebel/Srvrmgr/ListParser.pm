@@ -17,11 +17,12 @@ Siebel::Srvrmgr::ListParser - state model parser to idenfity which output type w
 use Moose;
 use Siebel::Srvrmgr::ListParser::OutputFactory;
 use Siebel::Srvrmgr::ListParser::Buffer;
-use Siebel::Srvrmgr::Regexes qw(SRVRMGR_PROMPT CONN_GREET);
-use Scalar::Util qw(weaken);
 use Siebel::Srvrmgr;
 use Log::Log4perl;
+use Scalar::Util qw(weaken);
 use Siebel::Srvrmgr::ListParser::FSA;
+use Socket qw(:crlf);
+use namespace::autoclean;
 
 =pod
 
@@ -70,44 +71,12 @@ A boolean value that identifies if the ListParser object has a parsed tree or no
 
 =cut
 
-has 'has_tree' =>
-  ( is => 'ro', isa => 'Bool', default => 0, writer => '_set_has_tree' );
-
-=pod
-
-=head2 prompt_regex
-
-A regular expression reference of how the C<srvrmgr> prompt looks like.
-
-By default this regular expression value is defined by L<Siebel::Srvrmgr::Regexes>::SRVRMGR_PROMPT.
-
-=cut
-
-has 'prompt_regex' => (
-    is      => 'rw',
-    isa     => 'RegexpRef',
-    reader  => 'get_prompt_regex',
-    writer  => 'set_prompt_regex',
-    default => sub { SRVRMGR_PROMPT }
-);
-
-=pod
-
-=head2 hello_regex
-
-A regular expression reference of how the first line of text received right after the login in one
-server (or enterprise).
-
-By default this regular expression value is defined by L<Siebel::Srvrmgr::Regexes>::CON_GREET.
-
-=cut
-
-has 'hello_regex' => (
-    is      => 'rw',
-    isa     => 'RegexpRef',
-    reader  => 'get_hello_regex',
-    writer  => 'set_hello_regex',
-    default => sub { CONN_GREET }
+has 'has_tree' => (
+    is      => 'ro',
+    isa     => 'Bool',
+    default => 0,
+    writer  => '_set_has_tree',
+    reader  => 'has_tree'
 );
 
 =pod
@@ -124,8 +93,9 @@ has 'last_command' => (
     is      => 'ro',
     isa     => 'Str',
     reader  => 'get_last_command',
-    writer  => '_set_last_command',
-    default => ''
+    writer  => 'set_last_command',
+    default => '',
+    trigger => \&_toggle_cmd_changed
 );
 
 =pod
@@ -148,10 +118,34 @@ An array reference with each one of the indexes being a C<Siebel::Srvrmgr::ListP
 
 has 'buffer' => (
     is      => 'rw',
-    isa     => 'ArrayRef',
+    isa     => 'ArrayRef[Siebel::Srvrmgr::ListParser::Buffer]',
     reader  => 'get_buffer',
     writer  => '_set_buffer',
     default => sub { return [] }
+);
+
+=pod
+
+=head2 enterprise
+
+A reference to a L<Siebel::Srvrmgr::ListParser::Output::Greetings>. It is defined during initial parsing (can be available or not).
+
+This object has some details about the enterprise connected. Check the related Pod for more information.
+
+=cut
+
+has 'enterprise' => (
+    is     => 'ro',
+    isa    => 'Siebel::Srvrmgr::ListParser::Output::Greetings',
+    reader => 'get_enterprise',
+    writer => '_set_enterprise'
+);
+
+has 'fsa' => (
+    is     => 'ro',
+    isa    => 'Siebel::Srvrmgr::ListParser::FSA',
+    reader => 'get_fsa',
+    writer => '_set_fsa'
 );
 
 =pod
@@ -197,15 +191,27 @@ Set the last command found in the parser received data. It also triggers that th
 
 =cut
 
-sub set_last_command {
+sub _toggle_cmd_changed {
 
-    my $self = shift;
-    my $cmd  = shift;
+    my ( $self, $new_value, $old_value ) = @_;
 
-    # trigger for set_buffer method
     $self->is_cmd_changed(1);
 
-    $self->_set_last_command($cmd);
+}
+
+=pod
+
+=head2 BUILD
+
+Automaticallu defined the state machine object based on L<Siebel::Srvrmgr::ListParser::FSA>.
+
+=cut
+
+sub BUILD {
+
+    my $self = shift;
+
+    $self->_set_fsa( Siebel::Srvrmgr::ListParser::FSA->new() );
 
 }
 
@@ -215,51 +221,60 @@ sub set_last_command {
 
 Sets the buffer attribute,  inserting new C<Siebel::Srvrmgr::ListParser::Buffer> objects into the array reference as necessary.
 
+Expects an instance of a L<FSA::State> class as parameter (obligatory parameter).
+
 =cut
 
 sub set_buffer {
 
-    my $self  = shift;
-    my $state = shift;
+    my $self = shift;
+    my $type = shift;
+    my $line = shift;
 
-    if ( defined( $state->notes('line') ) ) {
+    my $log_cfg = Siebel::Srvrmgr->logging_cfg();
+    die 'Could not start logging facilities'
+      unless ( Log::Log4perl->init_once( \$log_cfg ) );
+    my $logger = Log::Log4perl->get_logger('Siebel::Srvrmgr::ListParser');
+    weaken($logger);
+
+    if ( defined($line) ) {
 
         my $buffer_ref = $self->get_buffer();
 
-# already has something, get the last one (only if the log file is valid this will work)
+        # already has something, get the last one
         if ( scalar( @{$buffer_ref} ) >= 1 ) {
+
+            $logger->debug('I already have data buffered');
 
             my $last_buffer = $buffer_ref->[ $#{$buffer_ref} ];
 
-            if ( $self->is_cmd_changed() ) {
+            $logger->debug(
+                'Command is the same, appending data to last buffer');
 
-# :TODO:07/07/2011 13:05:22:: refactor this to a private method since code is repeated
-                my $buffer = Siebel::Srvrmgr::ListParser::Buffer->new(
-                    {
-                        type     => $state->name(),
-                        cmd_line => $self->get_last_command()
-                    }
-                );
+            if ( $last_buffer->get_type() eq $type ) {
 
-                $buffer->set_content( $state->notes('line') );
+                if ( $line ne '' ) {
 
-                push( @{$buffer_ref}, $buffer );
-                $self->_set_buffer($buffer_ref);
+                    $last_buffer->set_content($line);
+                }
+                else {
+                    $logger->debug(
+'Ignoring first blank line right after command submission'
+                    );
+
+                }
 
             }
             else {
 
-                if ( $last_buffer->get_type() eq $state->name() ) {
+                if ( $logger->is_fatal() ) {
 
-                    $last_buffer->set_content( $state->notes('line') );
-
-                }
-                else {
-
-                    warn 'Command has not changed but type of output has (got '
-                      . $state->name()
-                      . ' instead of '
-                      . $last_buffer->get_type() . ")\n";
+                    $logger->fatal(
+                        'Command has not changed but type of output has (got '
+                          . $type
+                          . ' instead of '
+                          . $last_buffer->get_type()
+                          . '). Data was ignored' );
 
                 }
 
@@ -268,24 +283,37 @@ sub set_buffer {
         }
         else {
 
-            my $buffer = Siebel::Srvrmgr::ListParser::Buffer->new(
-                {
-                    type     => $state->name(),
-                    cmd_line => $self->get_last_command()
-                }
+            $logger->fatal(
+'buffer is still uninitialized even though _create_buffer should already taken care of it'
             );
-
-            $buffer->set_content( $state->notes('line') );
-
-            push( @{$buffer_ref}, $buffer );
-            $self->_set_buffer($buffer_ref);
 
         }
 
     }
     else {
 
-        warn "Undefined content from state received\n";
+        $logger->warn('Undefined content from state received');
+
+    }
+
+}
+
+# adds a new buffer to the buffer attribute
+sub _create_buffer {
+
+    my $self = shift;
+    my $type = shift;
+
+    if ( Siebel::Srvrmgr::ListParser::OutputFactory->can_create($type) ) {
+
+        my $buffer = Siebel::Srvrmgr::ListParser::Buffer->new(
+            {
+                type     => $type,
+                cmd_line => $self->get_last_command()
+            }
+        );
+
+        push( @{ $self->get_buffer() }, $buffer );
 
     }
 
@@ -377,10 +405,15 @@ sub set_parsed_tree {
 
 =head2 append_output
 
-Appends an object to an existing parsed tree. Expects as a parameter an C<Siebel::Srvrmgr::ListParser::Buffer> object as a parameter.
+Appends an object to an existing parsed tree.
 
-It uses C<Siebel::Srvrmgr::ListParser::OutputFactory> to create the proper 
-C<Siebel::Srvrmgr::ListParser::Output> object based on the C<Siebel::Srvrmgr::ListParser::Buffer> type.
+Can use an optional parameter as L<Siebel::Srvrmgr::ListParser::Buffer> instance, othewise it will use the returned value from C<get_buffer> method.
+
+It uses L<Siebel::Srvrmgr::ListParser::OutputFactory> to create the proper 
+L<Siebel::Srvrmgr::ListParser::Output> object based on the L<Siebel::Srvrmgr::ListParser::Buffer> type.
+
+If the item received as parameter is a L<Siebel::Srvrmgr::ListParser::Output::Greetings> instance, it will be assigned to the C<enterprise>
+attribute instead of being added to the C<parsed_tree> attribute.
 
 =cut
 
@@ -389,16 +422,63 @@ sub append_output {
     my $self   = shift;
     my $buffer = shift;
 
-    my $output = Siebel::Srvrmgr::ListParser::OutputFactory->create(
-        $buffer->get_type(),
-        {
-            data_type => $buffer->get_type(),
-            raw_data  => $buffer->get_content(),
-            cmd_line  => $buffer->get_cmd_line()
-        }
-    );
+    if ( defined($buffer) ) {
 
-    $self->set_parsed_tree($output);
+        my $output = Siebel::Srvrmgr::ListParser::OutputFactory->create(
+            $buffer->get_type(),
+            {
+                data_type => $buffer->get_type(),
+                raw_data  => $buffer->get_content(),
+                cmd_line  => $buffer->get_cmd_line()
+            }
+        );
+
+        if ( $output->isa('Siebel::Srvrmgr::ListParser::Output::Greetings') ) {
+
+            $self->_set_enterprise($output);
+
+        }
+        else {
+
+            $self->set_parsed_tree($output);
+
+        }
+
+    }
+    else {
+# :WORKAROUND:21/08/2013 16:29:35:: not very elegant, but should speed up thing for avoid calling method resolution multiple times
+
+        my $buffer_ref = $self->get_buffer();
+
+        foreach my $buffer ( @{$buffer_ref} ) {
+
+            my $output = Siebel::Srvrmgr::ListParser::OutputFactory->create(
+                $buffer->get_type(),
+                {
+                    data_type => $buffer->get_type(),
+                    raw_data  => $buffer->get_content(),
+                    cmd_line  => $buffer->get_cmd_line()
+                }
+            );
+
+            if (
+                $output->isa('Siebel::Srvrmgr::ListParser::Output::Greetings') )
+            {
+
+                $self->_set_enterprise($output);
+
+            }
+            else {
+
+                $self->set_parsed_tree($output);
+
+            }
+
+        }
+
+    }
+
+    return 1;
 
 }
 
@@ -408,7 +488,8 @@ sub append_output {
 
 Parses one or more commands output executed through C<srvrmgr> program.
 
-Expects as parameter an array reference with the output of C<srvrmgr>, including the command executed.
+Expects as parameter an array reference with the output of C<srvrmgr>, including the command executed. The array references indexes values should be rid off any
+EOL character.
 
 It will create an L<FSA::Rules> object to parse the given array reference, calling C<append_output> method for each L<Siebel::Srvrmgr::ListParser::Buffer> object
 found.
@@ -419,67 +500,112 @@ This method will raise an exception if a given output cannot be identified by th
 
 sub parse {
 
-    my $self = shift;
-
-    # array ref
+    my $self     = shift;
     my $data_ref = shift;
 
-    my $log_cfg = Siebel::Srvrmgr->logging_cfg();
+# :TODO:03-10-2013:arfreitas: evaluate if having a logger attribute does not have better performance instead doing this logger instantiation everytime
+    my $logger = Siebel::Srvrmgr->gimme_logger( ref($self) );
+    weaken($logger);
 
-    die 'Could not start logging facilities'
-      unless ( Log::Log4perl->init_once( \$log_cfg ) );
+    $logger->logdie( 'Received an invalid buffer: ' . ref($data_ref) )
+      unless ( ( defined($data_ref) ) and ( ref($data_ref) eq 'ARRAY' ) );
 
-    my $logger = Log::Log4perl->get_logger('Siebel::Srvrmgr::ListParser');
+    weaken($data_ref);
 
-    die "data parameter must be an array reference\n"
-      unless ( ref($data_ref) eq 'ARRAY' );
+    $self->get_fsa->notes( all_data => $data_ref );
+    $self->get_fsa->notes( line_num => 0 );
+    $self->get_fsa->start() unless ( $self->get_fsa()->curr_state() );
 
-    warn "received an empty buffer" unless ( @{$data_ref} );
+    do {
 
-    my $fsa = Siebel::Srvrmgr::ListParser::FSA->get_fsa($logger);
+        my $state = $self->get_fsa->switch();
 
-    $fsa->done( sub { ( $self->get_last_command() eq 'exit' ) ? 1 : 0 } );
+        if ( defined($state) ) {
 
-    # creates a image representing all the states used and their relationship
-#    if ( $logger->is_debug() ) {
-#
-#        my $graph = $fsa->graph( layout => 'neato', overlap => 'false' );
-#        $graph->as_png('pretty.png');
-#
-#    }
+            my $curr_msg = $state->notes('line');
 
-    my $state;
-    my $line_number = 0;
+# :TODO:03-10-2013:arfreitas: find a way to keep circular references between the two objects to avoid
+# checking state change everytime with is_cmd_changed
 
-    foreach my $line ( @{$data_ref} ) {
+          SWITCH: {
 
-        unless ( defined($state) ) {
+# :WORKAROUND:03-10-2013:arfreitas: command_submission defines is_cmd_changed but it is not a
+# Siebel::Srvrmgr::ListParser::Output instance, so it's not worth to create a buffer object for it and discard later.
+# Anyway, is expected that after a command is submitted, the next message is the output from it and it needs
+# a buffer to be stored
+                if ( $self->get_fsa->prev_state()->name() eq
+                    'command_submission' )
+                {
 
-            $state = $fsa->start();
+                    $self->_create_buffer( $state->name() );
+                    last SWITCH;
+                }
 
-            $state->notes( parser => $self );
-            weaken( $state->notes('parser') );
+                if ( $state->notes('is_cmd_changed') ) {
+
+                    $logger->debug( 'calling set_last_command with ['
+                          . $state->notes('last_command')
+                          . ']' )
+                      if ( $logger->is_debug() );
+
+                    $self->set_last_command( $state->notes('last_command') );
+                    last SWITCH;
+
+                }
+
+                if ( $state->notes('create_greetings') ) {
+
+                    $self->_create_buffer( $state->name );
+                    $state->notes( create_greetings  => 0 );
+                    $state->notes( greetings_created => 1 );
+                    last SWITCH;
+
+                }
+
+            }
+
+            if ( $state->notes('is_data_wanted') ) {
+
+                $logger->debug( 'calling set_buffer with ['
+                      . $state->name() . '], ['
+                      . $curr_msg
+                      . ']' )
+                  if ( $logger->is_debug() );
+                $self->set_buffer( $state->name(), $curr_msg );
+
+            }
 
         }
 
-        $line =~ s/\n$//;
-        $state->notes( line_num => $line_number );
-        $state->notes( line     => $line );
-        $line_number++;
-        $fsa->switch() unless ( $fsa->done() );
+    } until ( $self->get_fsa->done() );
 
-    }
+    $self->append_output();
+    $self->get_fsa->reset();
 
-    # creates the parsed tree
-    my $buffer_ref = $self->get_buffer();
-
-    foreach my $buffer ( @{$buffer_ref} ) {
-
-        $self->append_output($buffer);
-
-    }
+# :WORKAROUND:21/06/2013 20:36:08:: if parse method is called twice, without calling clear_buffer, the buffer will be reused
+# and the returned data will be invalid due removal of the last three lines by Siebel::Srvrmgr::ListParser::Output->parse
+# This should help with memory utilization too
+    $self->clear_buffer();
 
     return 1;
+
+}
+
+=head2 DEMOLISH
+
+Due issues with memory leak and garbage collection, DEMOLISH was implemented to call additional methods from the API to clean buffer and parsed tree
+data.
+
+=cut
+
+sub DEMOLISH {
+
+    my $self = shift;
+
+    $self->get_fsa->free_refs();
+    $self->{fsa} = undef;
+    $self->clear_buffer();
+    $self->clear_parsed_tree();
 
 }
 
@@ -492,7 +618,7 @@ are details regarding how the settings of srvrmgr are expect for output of list 
 
 =head1 SEE ALSO
 
-=over 6 
+=over
 
 =item *
 
@@ -512,6 +638,10 @@ L<Siebel::Srvrmgr::ListParser::OutputFactory>
 
 =item *
 
+L<Siebel::Srvrmgr::ListParser::Output::Greetings>
+
+=item *
+
 L<Siebel::Srvrmgr::ListParser::Buffer>
 
 =item *
@@ -526,7 +656,7 @@ Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 This file is part of Siebel Monitoring Tools.
 

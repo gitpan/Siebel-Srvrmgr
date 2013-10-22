@@ -6,20 +6,6 @@ package Siebel::Srvrmgr::Exporter::ListCompDef;
 
 Siebel::Srvrmgr::Daemon::Action::ListCompDef - subclass of Siebel::Srvrmgr::Daemon::Action to stored parsed list comp def output
 
-=head1 SYNOPSES
-
-	use Siebel::Srvrmgr:Daemon::Action::ListCompDef;
-
-		$action = $class->new(
-			{
-                parser =>
-                  Siebel::Srvrmgr::ListParser->new( { is_warn_enabled => 1 }, 
-				params => ['myStorableFile']
-            }
-		);
-
-		$action->do(\@data);
-
 =cut
 
 use Moose;
@@ -33,7 +19,7 @@ extends 'Siebel::Srvrmgr::Daemon::Action';
 =head1 DESCRIPTION
 
 This subclass will try to find a L<Siebel::Srvrmgr::ListParser::Output::ListCompDef> object in the given array reference
-given as parameter to the C<do> method and stores the parsed data from this object C<get_params> method into a file using
+given as parameter to the C<do> method and stores the parsed data from this in a L<Siebel::Srvrmgr::Daemon::ActionStash> object.
 L<Storable> C<nstore> function.
 
 =head1 ATTRIBUTES
@@ -51,32 +37,20 @@ and the function returns 1 in this case. Otherwise it will return 0.
 
 =cut
 
-override 'do' => sub {
+override 'do_parsed' => sub {
 
-    my $self   = shift;
-    my $buffer = shift;    # array reference
+    my $self = shift;
+    my $obj  = shift;
 
-    super();
+    if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListCompDef') ) {
 
-    my $stash = Siebel::Srvrmgr::Daemon::ActionStash->instance();
+        my $stash = Siebel::Srvrmgr::Daemon::ActionStash->instance();
+        $stash->set_stash( [ $obj->get_data_parsed() ] );
 
-    $self->get_parser()->parse($buffer);
+        return 1;
 
-    my $tree = $self->get_parser()->get_parsed_tree();
+    }
 
-    foreach my $obj ( @{$tree} ) {
-
-        if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListCompDef') ) {
-
-            $stash->set_stash( $obj->get_data_parsed() );
-
-            return 1;
-
-        }
-
-    }    # end of foreach block
-
-	$stash->set_stash([]);
     return 0;
 
 };
@@ -85,7 +59,7 @@ override 'do' => sub {
 
 =head1 SEE ALSO
 
-=over 4
+=over 3
 
 =item *
 
@@ -93,15 +67,11 @@ L<Siebel::Srvrgmr::Daemon::Action>
 
 =item *
 
-L<Storable>
+L<Siebel::Srvrmgr::Daemon::ActionStash>
 
 =item *
 
 L<Siebel::Srvrmgr::ListParser::Output::ListCompDef>
-
-=item *
-
-L<Siebel::Srvrmgr::Daemon::Action::Serializable>
 
 =back
 

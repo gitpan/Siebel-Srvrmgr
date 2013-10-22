@@ -31,43 +31,38 @@ with 'Siebel::Srvrmgr::Daemon::Action::Serializable';
 This subclass of L<Siebel::Srvrmgr::Daemon::Action> will try to find a L<Siebel::Srvrmgr::ListParser::Output::ListParams> object in the given array reference
 given as parameter to the C<do> method and stores the parsed data from this object in a serialized file.
 
+=head1 CAVEATS
+
+This class is not working due a limitation of L<MooseX::Storable>. See the corresponding test file for more information.
+
 =head1 METHODS
 
-=head2 do
+=head2 do_parsed
 
-This method is overrided from the superclass method, that is still called to validate parameter given.
-
-It will search in the array reference given as parameter: the first object found is serialized to the filesystem
-and the function returns 1 in this case. Otherwise it will return 0.
+It will check if the object given as parameter is a L<Siebel::Srvrmgr::ListParser::Output::ListParams> object. If true, it is serialized to the 
+filesystem with C<nstore> and the function returns 1 in this case. If none is found it will return 0.
 
 =cut
 
-sub do {
+override 'do_parsed' => sub {
 
-    my $self   = shift;
-    my $buffer = shift;    # array reference
+    my $self = shift;
+    my $obj  = shift;
 
-	super();
+    if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListParams') ) {
 
-    $self->get_parser()->parse($buffer);
+        $obj->store( $self->get_dump_file() );
 
-    my $tree = $self->get_parser()->get_parsed_tree();
+        return 1;
 
-    foreach my $obj ( @{$tree} ) {
+    }
+    else {
 
-        if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListParams') ) {
+        return 0;
 
-            $obj->store( $self->get_dump_file() );
+    }
 
-            return 1;
-
-        }
-
-    }    # end of foreach block
-
-    return 0;
-
-}
+};
 
 =pod
 

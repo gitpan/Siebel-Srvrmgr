@@ -1,22 +1,10 @@
 package Siebel::Srvrmgr;
 use warnings;
 use strict;
+use Log::Log4perl;
+use Carp;
 
-our $VERSION = '0.09';
-
-sub logging_cfg {
-
-    my $cfg = undef;
-
-    local $/;
-
-    $cfg = <Siebel::Srvrmgr::DATA>;
-
-    return $cfg;
-
-}
-
-1;
+our $VERSION = '0.10';
 
 =pod
 
@@ -46,13 +34,79 @@ only commenting the line:
 
 with the default "#" Perl comment character.
 
-Logging is quite flexible (see L<Log::Log4Perl> for details) but the default configuration uses only FATAL level printing messages to STDOUT.
+Logging is quite flexible (see L<Log::Log4perl> for details) but the default configuration uses only FATAL level printing messages to STDOUT.
+
+It is also possible to set a different L<Log::Log4perl> configuration file by setting the environment variable SIEBEL_SRVRMGR_DEBUG with the complete location to the
+configuration file. This module will look first for this variable configuration and if found, will try to use the configuration from there.
+
+=cut
+
+sub logging_cfg {
+
+    my $cfg = undef;
+
+    local $/;
+
+    if ( $ENV{SIEBEL_SRVRMGR_DEBUG} ) {
+
+        if (    ( -e $ENV{SIEBEL_SRVRMGR_DEBUG} )
+            and ( -f $ENV{SIEBEL_SRVRMGR_DEBUG} ) )
+        {
+
+            open( my $in, '<', $ENV{SIEBEL_SRVRMGR_DEBUG} )
+              or confess "Cannot read $ENV{SIEBEL_SRVRMGR_DEBUG}: $!";
+            $cfg = <$in>;
+            close($in);
+
+        }
+        else {
+
+            confess
+"SIEBEL_SRVRMGR_DEBUG is defined ($ENV{SIEBEL_SRVRMGR_DEBUG}) but the value does not exists in the filesystem or is not a file";
+
+        }
+
+    }
+    else {
+
+        $cfg = <Siebel::Srvrmgr::DATA>;
+
+    }
+
+    return $cfg;
+
+}
+
+=pod
+
+=head2 gimme_logger
+
+This method returns a L<Log::Log4perl::Logger> object as defined by the C<logging_cfg> method.
+
+=cut
+
+sub gimme_logger {
+
+    my $class   = shift;
+    my $package = shift;
+
+    confess 'package parameter must be defined' unless ( defined($package) );
+    my $cfg = Siebel::Srvrmgr->logging_cfg();
+
+    confess "Could not start logging facilities"
+      unless ( Log::Log4perl->init_once( \$cfg ) );
+
+    return Log::Log4perl->get_logger($package);
+
+}
+
+=pod
 
 =head1 SEE ALSO
 
-The classes below might give you a introduction of the available classes and features.
+The classes below might give you a introduction of the available classes and features:
 
-=over 2
+=over
 
 =item *
 
@@ -62,15 +116,19 @@ L<Siebel::Srvrmgr::Daemon>
 
 L<Siebel::Srvrmgr::ListParser>
 
+=item *
+
+The project web page at L<http://code.google.com/p/siebel-monitoring-tools/> contains more information about project features and state.
+
 =back
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 This file is part of Siebel Monitoring Tools.
 
@@ -89,10 +147,11 @@ along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
+1;
+
 __DATA__
-log4perl.threshold = OFF
 log4perl.logger.Siebel.Srvrmgr.Daemon=FATAL, A1
-log4perl.appender.A1=Log::Dispatch::Screen
+log4perl.appender.A1=Log::Log4perl::Appender::Screen
 log4perl.appender.A1.stderr=0
 log4perl.appender.A1.layout=Log::Log4perl::Layout::PatternLayout
 log4perl.appender.A1.layout.ConversionPattern=%d %p> %F{1}:%L %M - %m%n

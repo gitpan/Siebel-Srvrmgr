@@ -19,7 +19,6 @@ Siebel::Srvrmgr::Daemon::Condition - object that checks which conditions should 
 
 use Moose;
 use namespace::autoclean;
-use feature qw(say switch);
 
 =pod
 
@@ -422,9 +421,14 @@ sub reset_cmd_counter {
 
 =pod
 
+=head1 CAVEATS
+
+This class is becoming more and more complex due the several conditions that need to be evaluated for defining if the L<Siebel::Srvrmgr::Daemon> should still
+execute the C<run> method or not. This probably should be replaced by a state machine.
+
 =head1 SEE ALSO
 
-=over 2
+=over
 
 =item *
 
@@ -438,11 +442,11 @@ L<Siebel::Srvrmgr::Daemon>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 This file is part of Siebel Monitoring Tools.
 
@@ -457,7 +461,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
+along with Siebel Monitoring Tools.  If not, see L<http://www.gnu.org/licenses/>.
 
 =cut
 

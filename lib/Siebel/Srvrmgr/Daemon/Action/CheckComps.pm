@@ -27,6 +27,7 @@ use Moose;
 use namespace::autoclean;
 use Moose::Util qw(does_role);
 use Siebel::Srvrmgr::Daemon::ActionStash;
+use Carp;
 
 extends 'Siebel::Srvrmgr::Daemon::Action';
 
@@ -73,14 +74,14 @@ sub BUILD {
 
     foreach my $object ( @{ $self->get_params() } ) {
 
-        die "all params items must be classes with $role role applied"
+        confess "all params items must be classes with $role role applied"
           unless ( does_role( $object, $role ) );
 
     }
 
 }
 
-=head2 do
+=head2 do_parsed
 
 Expects a array reference as the buffer output from C<srvrmgr> program as a parameter.
 
@@ -111,134 +112,129 @@ are part of the Siebel Enterprise.
 
 =cut
 
-override 'do' => sub {
+override 'do_parsed' => sub {
 
-    my $self   = shift;
-    my $buffer = shift;    # array reference
+    my $self = shift;
+    my $obj  = shift;
 
-    my $servers = $self->get_params();    # array reference
-
-    super();
-
-    my %servers;    # to locate the expected servers easier
+    my $servers = $self->get_params();   # array reference
+    my %servers;                         # to locate the expected servers easier
 
     foreach my $server ( @{$servers} ) {
 
-        $servers{ $server->name() } = $server;
+        $servers{ $server->get_name() } = $server;
 
     }
 
-    $self->get_parser()->parse($buffer);
-
-    my $tree = $self->get_parser()->get_parsed_tree();
-
     my %checked_comps;
 
-    foreach my $obj ( @{$tree} ) {
+    if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListComp') ) {
 
-        if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListComp') ) {
+        my $out_servers_ref = $obj->get_servers(); # servers retrieve from output of srvrmgr
 
-            my $servers_ref = $obj->get_servers();
-
-            confess
+        confess
 "Could not fetch servers from the Siebel::Srvrmgr::ListParser::Output::ListComp object returned by the parser"
-              unless ( scalar( @{$servers_ref} ) > 0 );
+          unless ( scalar( @{$out_servers_ref} ) > 0 );
 
-            foreach my $name ( @{$servers_ref} ) {
+        foreach my $out_name ( @{$out_servers_ref} ) {
 
-                my $server = $obj->get_server($name);
+            my $server = $obj->get_server($out_name);
 
-                if (
-                    $server->isa(
-                        'Siebel::Srvrmgr::ListParser::Output::ListComp::Server')
-                  )
-                {
+            if (
+                $server->isa(
+                    'Siebel::Srvrmgr::ListParser::Output::ListComp::Server')
+              )
+            {
 
-                    my $name = $server->get_name();
+                my $exp_name = $server->get_name(); # the expected server name
 
-                    if ( exists( $servers{$name} ) ) {
+                if ( exists( $servers{$exp_name} ) ) {
 
-                        my $exp_srv =
-                          $servers{$name};    # the expected server reference
+                    my $exp_srv =
+                      $servers{$exp_name};    # the expected server reference
 
-                        foreach my $exp_comp ( @{ $exp_srv->components() } ) {
+                    foreach my $exp_comp ( @{ $exp_srv->get_components() } ) {
 
-                            my $comp = $server->get_comp( $exp_comp->name() );
+                        my $comp = $server->get_comp( $exp_comp->get_alias() );
 
-                            if ( defined($comp) ) {
+                        if ( defined($comp) ) {
 
-                                my @valid_status =
-                                  split( /\|/, $exp_comp->OKStatus() );
+                            my @valid_status =
+                              split( /\|/, $exp_comp->get_OKStatus() );
 
-                                my $is_ok = 0;
+                            my $is_ok = 0;
 
-                                foreach my $valid_status (@valid_status) {
+                            foreach my $valid_status (@valid_status) {
 
-                                    if ( $valid_status eq
-                                        $comp->cp_disp_run_state() )
-                                    {
+                                if ( $valid_status eq
+                                    $comp->cp_disp_run_state() )
+                                {
 
-                                        $is_ok = 1;
-                                        last;
-
-                                    }
+                                    $is_ok = 1;
+                                    last;
 
                                 }
 
-                                if ($is_ok) {
+                            }
 
-                                    $checked_comps{ $exp_srv->name() }
-                                      ->{ $exp_comp->name() } = 1;
+                            if ($is_ok) {
 
-                                }
-                                else {
+                                $checked_comps{ $exp_srv->get_name() }
+                                  ->{ $exp_comp->get_alias() } = 1;
 
-                                    $checked_comps{ $exp_srv->name() }
-                                      ->{ $exp_comp->name() } = 0;
+                            }
+                            else {
+
+                                $checked_comps{ $exp_srv->get_name() }
+                                  ->{ $exp_comp->get_alias() } = 0;
 
 # :TODO      :04/06/2013 19:16:51:: must use a environment variable to indicate Log::Log4perl configuration and then enable logging here
 #                                    warn 'invalid status got for ',
 #                                      $exp_comp->name(), ' ',
 #                                      $comp->cp_disp_run_state();
 
-                                }
-
-                            }
-                            else {
-
-                                confess
-                                  'Could not find any component with name ',
-                                  $exp_comp->{name}, "\n"
-
                             }
 
                         }
+                        else {
 
-                    }    # end of foreach comp
-                    else {
+                            warn
+                              'Could not find any component with name [',
+                              $exp_comp->get_alias() . ']';
 
-                        confess 'Unexpected servername retrieved from buffer';
+                        }
 
                     }
 
-                }
+                }    # end of foreach comp
                 else {
 
-                    confess "could not fetch $name data";
-
+                    confess("Unexpected servername [$exp_name] retrieved from buffer.\n Expected servers names are " . join( ', ', map { '[' . $_->get_name() . ']' } @{$servers} ) );
                 }
 
-            }    # end of foreach server
+            }
+            else {
 
-        }
+                confess "could not fetch $out_name data";
 
-    }    # end of foreach Siebel::Srvrmgr::ListParser::Output::ListComp object
+            }
+
+        }    # end of foreach server
+
+    }
+    else {
+
+        return 0;
+
+    }
 
     # found some servers
     if ( keys(%checked_comps) ) {
 
         my $stash = Siebel::Srvrmgr::Daemon::ActionStash->instance();
-        $stash->set_stash( \%checked_comps );
+
+# :TODO      :24/07/2013 12:32:51:: it should set the stash with more than just the ok/not ok status from the components
+        $stash->set_stash( [ \%checked_comps ] );
 
         return 1;
 

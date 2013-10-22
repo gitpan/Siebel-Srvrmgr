@@ -1,7 +1,8 @@
 package Siebel::Srvrmgr::Nagios::Config;
 use XML::Rabbit::Root;
+use Carp;
 
-add_xpath_namespace 'ns1' => 'http://code.google.com/p/siebel-monitoring-tools';
+add_xpath_namespace 'ns1' => 'http://code.google.com/p/siebel-monitoring-tools/';
 
 =pod
 
@@ -104,29 +105,29 @@ sub BUILD {
 
         my %default_status;
 
-        foreach my $compGroup ( @{ $server->componentGroups() } ) {
+        foreach my $compGroup ( @{ $server->get_componentGroups() } ) {
 
-            $default_status{ $compGroup->name() } = $compGroup->OKStatus();
+            $default_status{ $compGroup->get_name() } = $compGroup->get_OKStatus();
 
         }
 
-        foreach my $comp ( @{ $server->components() } ) {
+        foreach my $comp ( @{ $server->get_components() } ) {
 
-            if ( $comp->OKStatus() eq '' ) {
+            if ( $comp->get_OKStatus() eq '' ) {
 
-                if ( ( exists( $default_status{ $comp->componentGroup() } ) )
-                    and defined( $default_status{ $comp->componentGroup() } ) )
+                if ( ( exists( $default_status{ $comp->get_componentGroup() } ) )
+                    and defined( $default_status{ $comp->get_componentGroup() } ) )
                 {
 
                     $comp->_set_ok_status(
-                        $default_status{ $comp->componentGroup() } );
+                        $default_status{ $comp->get_componentGroup() } );
 
                 }
                 else {
 
-                    die 'Undefined value for '
-                      . $comp->name() . '->'
-                      . $comp->componentGroup();
+                    confess 'Undefined value for '
+                      . $comp->get_alias() . '->'
+                      . $comp->get_componentGroup() . ' in server ' . $server->get_name() . ' configuration';
 
                 }
 

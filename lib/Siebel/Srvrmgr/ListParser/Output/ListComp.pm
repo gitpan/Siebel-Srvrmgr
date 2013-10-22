@@ -4,7 +4,7 @@ package Siebel::Srvrmgr::ListParser::Output::ListComp;
 
 =head1 NAME
 
-Siebel::Srvrmgr::ListParser::Output::Listcomp - subclass that parses C<list comp> commands output of srvrmgr.
+Siebel::Srvrmgr::ListParser::Output::Listcomp - subclass that parses list comp commands output of srvrmgr.
 
 =cut
 
@@ -12,7 +12,6 @@ use Moose;
 use namespace::autoclean;
 use Siebel::Srvrmgr::ListParser::Output::ListComp::Server;
 use Siebel::Srvrmgr::ListParser::Output::ListComp::Comp;
-use feature qw(switch say);
 
 =head1 SYNOPSIS
 
@@ -239,12 +238,23 @@ sub _set_header_regex {
 
 }
 
+=pod
+
+=head2 _set_header
+
+_set_header method is overrided to also set the C<comp_attribs> attribute. The parent class method is also invoked (prior to setting C<comp_attribs>).
+
+=cut
+
 override '_set_header' => sub {
 
     my $self = shift;
     my $line = shift;
 
-    my $columns_ref = $self->_split_fields($line);
+    # defines header_cols
+    super();
+
+    my $columns_ref = $self->get_header_cols();
 
     #SV_NAME is useless here
     shift( @{$columns_ref} );
@@ -264,6 +274,11 @@ sub _parse_data {
     my $fields_ref = shift;
     my $parsed_ref = shift;
 
+    confess 'invalid fields parameter'
+      unless ( ( defined($fields_ref) )
+        and ( ( ref($fields_ref) ) eq 'ARRAY' )
+        and ( ( scalar( @{$fields_ref} ) ) > 0 ) );
+
     my $server = shift( @{$fields_ref} );
 
     # do not need the servername again
@@ -279,7 +294,7 @@ sub _parse_data {
 
     my $list_len = scalar( @{$fields_ref} );
 
- # :TODO      :08/05/2013 18:19:48:: replace comp_attribs with header_cols? seems to be the same thing
+# :TODO      :08/05/2013 18:19:48:: replace comp_attribs with header_cols? seems to be the same thing
     my $columns_ref = $self->get_comp_attribs();
 
     confess "Cannot continue without defining fields names"
@@ -333,11 +348,11 @@ L<Siebel::Srvrmgr::ListParser::Output::ListComp::Comp>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 This file is part of Siebel Monitoring Tools.
 
@@ -352,7 +367,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
+along with Siebel Monitoring Tools.  If not, see L<http://www.gnu.org/licenses/>.
 
 =cut
 

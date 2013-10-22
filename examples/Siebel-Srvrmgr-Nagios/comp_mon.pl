@@ -1,11 +1,11 @@
 use warnings;
 use strict;
-use Siebel::Srvrmgr::Daemon;
+use Siebel::Srvrmgr::Daemon::Light;
 use File::Spec::Functions qw(tmpdir catfile);
 use Nagios::Plugin;
 use Siebel::Srvrmgr::Daemon::ActionStash;
-use lib '.';
 use Siebel::Srvrmgr::Nagios::Config;
+use Siebel::Srvrmgr::Daemon::Command;
 
 #    COPYRIGHT AND LICENCE
 #
@@ -29,7 +29,7 @@ use Siebel::Srvrmgr::Nagios::Config;
 my $np = Nagios::Plugin->new(
     shortname => 'SCM',
     usage     => "Usage: %s -w -c -f",
-    version   => '0.1'
+    version   => '0.2'
 );
 
 $np->add_arg(
@@ -63,8 +63,10 @@ eval {
     $cfg =
       Siebel::Srvrmgr::Nagios::Config->new(
         file => $np->opts->configuration() );
+		
+    die 'siebelServer element requires a non-empty value in XML configuration file' unless ( $cfg->server() ne '' );
 
-    my $daemon = Siebel::Srvrmgr::Daemon->new(
+    my $daemon = Siebel::Srvrmgr::Daemon::Light->new(
         {
             gateway     => $cfg->gateway(),
             enterprise  => $cfg->enterprise(),
@@ -72,8 +74,6 @@ eval {
             password    => $cfg->password(),
             server      => $cfg->server(),
             bin         => catfile( $cfg->srvrmgrPath(), $cfg->srvrmgrBin() ),
-            is_infinite => 0,
-            timeout     => 0,
             commands    => [
                 Siebel::Srvrmgr::Daemon::Command->new(
                     command => 'load preferences',
@@ -118,7 +118,7 @@ sub calc_status {
 
     my $status = 0;
 
-    my $result_data = $results->get_stash();
+    my $result_data = $results->shift_stash();
 
     if ( exists( $result_data->{ $cfg->server() } ) ) {
 
@@ -131,16 +131,16 @@ sub calc_status {
 
                 my $servers = $cfg->servers();
 
-                my $comps = $servers->[0]->components();
+                my $comps = $servers->[0]->get_components();
 
  # :TODO      :04/06/2013 19:14:18:: should check if the returned component has the corresponding component in the configuration
  # and issue a warning if not,  at least
  # looping over the available components is not efficient too
                 foreach my $comp ( @{$comps} ) {
 
-                    if ( $comp->name() eq $comp_name ) {
+                    if ( $comp->get_alias() eq $comp_name ) {
 
-                        $status += $comp->criticality();
+                        $status += $comp->get_criticality();
 
                     }
 

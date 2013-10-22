@@ -9,8 +9,9 @@ Siebel::Srvrmgr::ListParser::Output::LoadPreferences - subclass to parse load pr
 =cut
 
 use Moose;
-use Siebel::Srvrmgr::Regexes;
-use feature 'switch';
+use Siebel::Srvrmgr::Regexes qw(LOAD_PREF_RESP LOAD_PREF_CMD);
+use namespace::autoclean;
+use Carp;
 
 extends 'Siebel::Srvrmgr::ListParser::Output';
 
@@ -68,39 +69,37 @@ override 'parse' => sub {
 
     my %parsed_lines;
 
-    my $response = Siebel::Srvrmgr::Regexes::LOAD_PREF_RESP;
-    my $command  = Siebel::Srvrmgr::Regexes::LOAD_PREF_CMD;
-
     foreach my $line ( @{$data_ref} ) {
 
-        chomp($line);
+      SWITCH: {
 
-        given ($line) {
-
-            when (/$response/) {
+            if ( $line =~ LOAD_PREF_RESP ) {
 
                 my @data = split( /\:\s/, $line );
 
-                $self->set_location( $data[-1] );
+                confess 'Caught invalid LOAD_PREF_RESP line' unless (@data);
+
+                $self->set_location( pop(@data) );
                 $parsed_lines{answer} = $line;
+                last SWITCH;
 
             }
 
-            when ( $line =~ /$command/ ) {
+            if ( $line =~ LOAD_PREF_CMD ) {
 
                 $parsed_lines{command} = $line;
+                last SWITCH;
 
             }
 
-            when ( $line eq '' ) {
+            if ( $line eq '' ) {
 
-                next;
+                last SWITCH;
 
             }
+            else {
 
-            default {
-
-                die 'Invalid data in line [' . $line . ']';
+                confess 'Invalid data in line [' . $line . ']';
 
             }
 
@@ -108,7 +107,7 @@ override 'parse' => sub {
 
     }
 
-    warn "Did not found any line with response\n"
+    confess "Did not found any line with response\n"
       unless ( defined( $self->get_location() ) );
 
     $self->set_data_parsed( \%parsed_lines );
@@ -134,11 +133,11 @@ L<Moose>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 This file is part of Siebel Monitoring Tools.
 
@@ -153,7 +152,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
+along with Siebel Monitoring Tools.  If not, see L<http://www.gnu.org/licenses/>.
 
 =cut
 

@@ -13,8 +13,8 @@ See L<Siebel::Srvrmgr::ListParser::Output>.
 =cut
 
 use Moose;
-use Siebel::Srvrmgr::Regexes;
-use feature 'switch';
+use Siebel::Srvrmgr::Regexes qw(CONN_GREET);
+use Carp;
 
 extends 'Siebel::Srvrmgr::ListParser::Output';
 
@@ -28,8 +28,6 @@ Normally this class would be created by L<Siebel::Srvrmgr::ListParser::OutputFac
 instatiation.
 
 It is possible to recover some useful information from the object methods but most of it is simple copyrigh information.
-
-Beware that the parse method is called automatically as soon as the object is created.
 
 =head1 ATTRIBUTES
 
@@ -149,7 +147,7 @@ Returns a integer as the value of total_connected attribute.
 =head2 parse
 
 This method overrides the superclass method since Siebel::Srvrmgr::ListParser::Output::Greetings simply does not follows the same sequence
-as the other subclasses.
+of parsing as the other subclasses.
 
 Parses the data available in the C<raw_data> attribute, setting the attribute C<data_parsed> at the end of process.
 
@@ -163,48 +161,57 @@ override 'parse' => sub {
 
     my $data_ref = $self->get_raw_data();
 
-    my $hello_regex = Siebel::Srvrmgr::Regexes::CONN_GREET;
-
     my $is_copyright = 0;
+
+    my %data_parsed;
 
     foreach my $line ( @{$data_ref} ) {
 
         chomp($line);
 
-        given ($line) {
+      SWITCH: {
 
-            when ('') {
+            if ( $line eq '' ) {
 
                 # do nothing
+                last SWITCH;
             }
 
-            when (/$hello_regex/) {
+            if ( $line =~ CONN_GREET ) {
 
 #Siebel Enterprise Applications Siebel Server Manager, Version 7.5.3 [16157] LANG_INDEPENDENT
                 my @words = split( /\s/, $line );
 
                 $self->_set_version( $words[7] );
+                $data_parsed{version} = $words[7];
+
                 $words[8] =~ tr/[]//d;
                 $self->_set_patch( $words[8] );
+                $data_parsed{patch} = $words[8];
+                last SWITCH;
 
             }
 
-            when (/^Copyright/) {
+            if ( $line =~ /^Copyright/ ) {
 
                 #Copyright (c) 2001 Siebel Systems, Inc.  All rights reserved.
                 $self->_set_copyright($line);
+                $data_parsed{copyright} = $line;
                 $is_copyright = 1;
+                last SWITCH;
 
             }
 
-            when (/^Type\s\"help\"/) {
+            if ( $line =~ /^Type\s\"help\"/ ) {
 
                 $self->_set_help($line);
+                $data_parsed{help} = $line;
                 $is_copyright = 0;
+                last SWITCH;
 
             }
 
-            when (/^Connected/) {
+            if ( $line =~ /^Connected/ ) {
 
        #Connected to 1 server(s) out of a total of 1 server(s) in the enterprise
        #Connected to 2 server(s) out of a total of 2 server(s) in the enterprise
@@ -212,24 +219,34 @@ override 'parse' => sub {
 
                 $self->_set_total_servers( $words[9] );
                 $self->_set_total_conn( $words[2] );
+                $data_parsed{total_servers} = $words[9];
+                $data_parsed{total_conn}    = $words[2];
+                last SWITCH;
 
             }
 
-            when (/^[\w\(]+/) {
+            if ( $line =~ /^[\w\(]+/ ) {
 
                 $self->_set_copyright($line) if ($is_copyright);
+                $data_parsed{copyright} = $line;
+                last SWITCH;
 
             }
+            else {
 
-            default {
-
-                die 'Invalid data from line [' . $line . ']';
+                confess 'Do not know how to deal with line content [' . $line
+                  . ']';
 
             }
 
         }
 
     }
+
+    $self->set_data_parsed( \%data_parsed );
+    $self->set_raw_data( [] );
+
+    return 1;
 
 };
 
@@ -252,7 +269,54 @@ sub _set_copyright {
 
 }
 
+# :TODO      :08/07/2013 15:51:18:: must separate Output functionality from expectation of output in tabular format
+
+# the methods below are overrided just because
+# the parent class demands, but they are useless for Greetings (they are never invoked internally)
+# since parse method is overrided as well
+override '_set_header_regex' => sub {
+
+    return qr/^.$/;
+
+};
+
+override '_parse_data' => sub {
+
+    return 1;
+
+};
+
 =pod
+
+=head2 BUILD
+
+The BUILD method sets defaults values for the attributes C<fields_patterns> and C<header_cols> during object creation, but those values are used
+only for passing tests of the API since they make no sense at all. This method should be removed in future releases of the API when the when the
+classes inheritance schema is changed to separate L<Siebel::Srvrmgr::ListParser::Output> methods and attributes from the expectation of having
+the output in tabular configuration.
+
+=cut
+
+sub BUILD {
+
+    my $self = shift;
+
+    $self->_set_fields_pattern('undefined');
+    $self->set_header_cols( [] );
+
+}
+
+=pod
+
+=head1 CAVEATS
+
+Beware that the parse method is called automatically as soon as the object is created.
+
+Greetings also does not follows the concept of fields from the superclass since it's output isn't tabular, so some related methods have "dummy" 
+implementations since they make no sense at all to be invoked.
+
+This is a good indicator that the superclass should be refactored to separate behaviour of output interpretation from tabular data expectation, so you might
+expect this interface to be changed in future releases.
 
 =head1 SEE ALSO
 
@@ -270,11 +334,11 @@ L<Siebel::Srvrmgr::ListParser::Output>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 This file is part of Siebel Monitoring Tools.
 
@@ -289,10 +353,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
+along with Siebel Monitoring Tools.  If not, see L<http://www.gnu.org/licenses/>.
 
 =cut
 
-no Moose;
 __PACKAGE__->meta->make_immutable;
-
+no Moose;

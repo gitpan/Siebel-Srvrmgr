@@ -24,8 +24,9 @@ use Moose;
 use MooseX::Storage;
 use namespace::autoclean;
 use Carp;
-use feature qw(switch current_sub);
+use Siebel::Srvrmgr::Regexes qw(ROWS_RETURNED);
 
+# :TODO      :25/06/2013 18:42:01:: must find a way to store only the non-compiled regex
 with Storage( io => 'StorableFile' );
 
 =pod
@@ -79,6 +80,9 @@ An hash reference with the data parsed from C<raw_data> attribute.
 
 =cut
 
+# :TODO:08-10-2013:arfreitas: verify if it is possible to reduce memory usage by removing data_parsed in some class
+# that don't use it directly
+
 has 'data_parsed' => (
     is     => 'rw',
     isa    => 'HashRef',
@@ -90,7 +94,7 @@ has 'data_parsed' => (
 
 =head2 cmd_line
 
-A string of the command that originates the output (the data of C<raw_data> attribute).
+A string of the command that originates from the output (the data of C<raw_data> attribute).
 
 This attribute is required during object creation.
 
@@ -231,64 +235,66 @@ in the data to be parsed.
 
 =cut
 
+# :TODO      :08/07/2013 18:50:42:: create POD for all steps executed by the method and which methods are called for each event
+
 sub parse {
 
     my $self = shift;
 
     my $data_ref = $self->get_raw_data();
 
+    die 'invalid data received to parse'
+      unless ( ( ( ref($data_ref) ) eq 'ARRAY' )
+        and ( scalar( @{$data_ref} ) ) );
+
     my %parsed_lines;
 
     my $line_header_regex = qr/^\-+\s/;
 
-# removing the three last lines (one blank line followed by a line amount of lines returned followed by a blank line)
-    for ( 1 .. 3 ) {
+# cleaning up, state machine should not handle the end of response from a list command
+    while (
+        ( scalar( @{$data_ref} ) > 0 )
+        and (  ( $data_ref->[ $#{$data_ref} ] eq '' )
+            or ( $data_ref->[ $#{$data_ref} ] =~ ROWS_RETURNED ) )
+      )
+    {
 
         pop( @{$data_ref} );
 
     }
 
+    confess 'Raw data became invalid after initial cleanup'
+      unless ( @{$data_ref} );
+
     foreach my $line ( @{$data_ref} ) {
 
-        chomp($line);
+      SWITCH: {
 
-        given ($line) {
-
-            when ('') {
+            if ( $line eq '' ) {
 
                 # do nothing
+                last SWITCH;
             }
 
-            when ($line_header_regex) { # this is the '-------' below the header
+            if ( $line =~ $line_header_regex )
+            {    # this is the '-------' below the header
 
-                my @columns = split( /\s{2}/, $line );
-
-                my $pattern;
-
-                foreach my $column (@columns) {
-
-# :WARNING   :09/05/2013 12:19:37:: + 2 because of the spaces after the "---" that will be trimmed, but this will cause problems
-# with the split_fields method if col_seps is different from two spaces
-                    $pattern .= 'A' . ( length($column) + 2 );
-
-                }
-
-                $self->_set_fields_pattern($pattern);
+                $self->_define_pattern($line);
+                last SWITCH;
 
             }
 
             # this is the header
-            when ( $line =~ $self->get_header_regex() ) {
+            if ( $line =~ $self->get_header_regex() ) {
 
                 $self->_set_header($line);
+                last SWITCH;
 
             }
-
-            default {
+            else {
 
                 my @fields_values;
 
-                # :TODO:5/1/2012 16:33:37:: copy this check to the other parsers
                 if ( defined( $self->get_fields_pattern() ) ) {
 
                     @fields_values =
@@ -305,7 +311,7 @@ sub parse {
                 unless ( $self->_parse_data( \@fields_values, \%parsed_lines ) )
                 {
 
-                    die 'Could not parse fields from line [' . $line . ']';
+                    confess 'Could not parse fields from line [' . $line . ']';
 
                 }
 
@@ -317,6 +323,43 @@ sub parse {
 
     $self->set_data_parsed( \%parsed_lines );
     $self->set_raw_data( [] );
+
+    return 1;
+
+}
+
+=pod
+
+=head2 _define_pattern
+
+Defines and sets the attribute C<fields_pattern>. This method is invoked automatically from the C<parse> method.
+
+You probably don't want to mess around with this method (that is "private") but will want to override it in subclasses if their
+schema of fields is different from defining them from the lenght of "------" header lines present in all output from commands of srvrmgr program.
+
+=cut
+
+sub _define_pattern {
+
+    my $self = shift;
+    my $line = shift;
+
+# :TODO      :17/06/2013 14:02:51:: should use default field separator attribute here
+    my @columns = split( /\s{2}/, $line );
+
+    my $pattern;
+
+    foreach my $column (@columns) {
+
+# :WARNING   :09/05/2013 12:19:37:: + 2 because of the spaces after the "---" that will be trimmed, but this will cause problems
+# with the split_fields method if col_seps is different from two spaces
+        $pattern .= 'A' . ( length($column) + 2 );
+
+    }
+
+    $self->_set_fields_pattern($pattern);
+
+    return 1;
 
 }
 
@@ -382,9 +425,7 @@ sub _set_header {
     my $self = shift;
     my $line = shift;
 
-    my $columns_ref = $self->_split_fields($line);
-
-    $self->set_header_cols($columns_ref);
+    $self->set_header_cols( $self->_split_fields($line) );
 
     return 1;
 
@@ -422,7 +463,8 @@ The method must return true or false depending on the result of parsing the fiel
 # process to parse their respective details besides header
 sub _parse_data {
 
-    die __SUB__ . ' method must be overrided by subclasses of ' . __PACKAGE__;
+    confess ' _parse_data method must be overrided by subclasses of '
+      . __PACKAGE__;
 
 }
 
@@ -439,7 +481,8 @@ superclass knows nothing about the format of the header from the list command ou
 
 sub _set_header_regex {
 
-    die __SUB__ . ' method must be overrided by subclasses of ' . __PACKAGE__;
+    confess '_set_header_regex method must be overrided by subclasses of '
+      . __PACKAGE__;
 
 }
 
@@ -474,11 +517,11 @@ L<namespace::autoclean>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 This file is part of Siebel Monitoring Tools.
 
@@ -493,10 +536,11 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
+along with Siebel Monitoring Tools.  If not, see L<http://www.gnu.org/licenses/>.
 
 =cut
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
+1;

@@ -1,4 +1,4 @@
 use lib 't';
-use Test::Condition;
+use Test::Siebel::Srvrmgr::Daemon::Condition;
 
 Test::Class->runtests;

@@ -1,12 +1,77 @@
 package Siebel::Srvrmgr::ListParser::FSA;
 use warnings;
 use strict;
-use FSA::Rules;
+use Log::Log4perl;
+use Siebel::Srvrmgr;
+use Siebel::Srvrmgr::Regexes qw(SRVRMGR_PROMPT CONN_GREET);
+use Scalar::Util qw(weaken);
 
-sub get_fsa {
+use parent 'FSA::Rules';
 
-    my $class  = shift;
-    my $logger = shift;
+=pod
+
+=head1 NAME
+
+Siebel::Srvrmgr::ListParser::FSA - the FSA::Rules class specification for Siebel::Srvrmgr::ListParser
+
+=head1 SYNOPSIS
+
+	use FSA::Rules;
+	my $fsa = Siebel::Srvrmgr::ListParser::FSA->get_fsa();
+    # do something with $fsa
+
+    # for getting a diagram exported in your currently directory with a onliner
+    perl -MSiebel::Srvrmgr::ListParser::FSA -e "Siebel::Srvrmgr::ListParser::FSA->export_diagram"
+
+=head1 DESCRIPTION
+
+Siebel::Srvrmgr::ListParser::FSA subclasses the state machine implemented by L<Siebel::Srvrmgr::ListParser> class.
+
+This class also have a L<Log::Log4perl> instance built in the L<FSA::Rules> instance returned by L<get_fsa> method.
+
+=head1 EXPORTS
+
+Nothing.
+
+=head1 METHODS
+
+=head2 export_diagram
+
+Creates a PNG file with the state machine diagram in the current directory where the method was invoked.
+
+=cut
+
+sub export_diagram {
+
+    my $fsa = get_fsa();
+
+    my $graph = $fsa->graph( layout => 'neato', overlap => 'false' );
+    $graph->as_png('pretty.png');
+
+    return 1;
+
+}
+
+=pod
+
+=head2 new
+
+Returns the state machine object defined for usage with a L<Siebel::Srvrmgr::ListParser> instance.
+
+=cut
+
+sub new {
+
+    my $class = shift;
+
+    my $log_cfg = Siebel::Srvrmgr->logging_cfg();
+
+    die 'Could not start logging facilities'
+      unless ( Log::Log4perl->init_once( \$log_cfg ) );
+
+    my $logger = Log::Log4perl->get_logger('Siebel::Srvrmgr::ListParser');
+
+    weaken($logger);
 
     my $ls_params_regex =
       qr/list\sparams(\sfor\sserver\s\w+\sfor\scomponent\s\w+)?/;
@@ -15,26 +80,83 @@ sub get_fsa {
     my $ls_servers_regex   = qr/list\sserver(s)?.*/;
     my $ls_comp_defs_regex = qr/list\scomp\sdefs?(\s\w+)?/;
 
-    my $fsa = FSA::Rules->new(
+    my %params = (
+        done => sub {
+
+            my $self = shift;
+
+            my $curr_line = shift( @{ $self->notes('all_data') } );
+            $self->notes( 'line_num' => ( $self->notes('line_num') + 1 ) );
+
+            if ( defined($curr_line) ) {
+
+                if ( defined( $self->notes('last_command') )
+                    and ( $self->notes('last_command') eq 'exit' ) )
+                {
+
+                    return 1;
+
+                }
+                else {
+
+                    $self->notes( line => $curr_line );
+                    return 0;
+
+                }
+
+            }
+            else {
+
+                return 1;
+
+            }
+
+        }
+    );
+
+    my $self = $class->SUPER::new(
+        \%params,
         no_data => {
             do => sub {
-                $logger->debug('Searching for useful data');
+
+                if ( $logger->is_debug() ) {
+
+                    $logger->debug('Searching for useful data');
+
+                }
+
             },
             rules => [
                 greetings => sub {
 
                     my $state = shift;
 
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_hello_regex() );
+                    if ( defined( $state->notes('line') ) ) {
+
+                        return ( $state->notes('line') =~ CONN_GREET );
+
+                    }
+                    else {
+
+                        return 0;
+
+                    }
 
                 },
                 command_submission => sub {
 
                     my $state = shift;
 
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    if ( defined( $state->notes('line') ) ) {
+
+                        return ( $state->notes('line') =~ SRVRMGR_PROMPT );
+
+                    }
+                    else {
+
+                        return 0;
+
+                    }
 
                 },
                 no_data => sub { return 1 }
@@ -43,22 +165,26 @@ sub get_fsa {
 
         },
         greetings => {
-            do => sub {
+            label    => 'greetings message from srvrmgr',
+            on_enter => sub {
 
                 my $state = shift;
+                $state->notes( is_cmd_changed     => 0 );
+                $state->notes( is_data_wanted     => 1 );
+                $state->notes( 'create_greetings' => 1 )
+                  unless ( $state->notes('greetings_created') );
+            },
+            on_exit => sub {
 
-                if ( defined( $state->notes('line') ) ) {
+                my $state = shift;
+                $state->notes( is_data_wanted => 0 );
 
-                    $state->notes('parser')->set_buffer($state);
-                }
             },
             rules => [
                 command_submission => sub {
 
                     my $state = shift;
-
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    return ( $state->notes('line') =~ SRVRMGR_PROMPT );
 
                 },
                 greetings => sub { return 1 }
@@ -66,7 +192,7 @@ sub get_fsa {
             message => 'prompt found'
         },
         end => {
-            do    => sub { print "Enterprise says 'bye-bye'\n"; },
+            do    => sub { $logger->debug('Enterprise says bye-bye') },
             rules => [
                 no_data => sub {
                     return 1;
@@ -75,23 +201,23 @@ sub get_fsa {
             message => 'EOF'
         },
         list_comp => {
-            do => sub {
+            label    => 'parses output from a list comp command',
+            on_enter => sub {
                 my $state = shift;
-
-                $state->notes('parser')->set_buffer($state);
-
+                $state->notes( is_cmd_changed => 0 );
+                $state->notes( is_data_wanted => 1 );
             },
             on_exit => sub {
+
                 my $state = shift;
-                $state->notes('parser')->is_cmd_changed(0);
+                $state->notes( is_data_wanted => 0 );
+
             },
             rules => [
                 command_submission => sub {
 
                     my $state = shift;
-
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    return ( $state->notes('line') =~ SRVRMGR_PROMPT );
 
                 },
                 list_comp => sub { return 1; }
@@ -99,23 +225,23 @@ sub get_fsa {
             message => 'prompt found'
         },
         list_comp_types => {
-            do => sub {
+            label    => 'parses output from a list comp types command',
+            on_enter => sub {
                 my $state = shift;
-
-                $state->notes('parser')->set_buffer($state);
-
+                $state->notes( is_cmd_changed => 0 );
+                $state->notes( is_data_wanted => 1 );
             },
             on_exit => sub {
+
                 my $state = shift;
-                $state->notes('parser')->is_cmd_changed(0);
+                $state->notes( is_data_wanted => 0 );
+
             },
             rules => [
                 command_submission => sub {
 
                     my $state = shift;
-
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    return ( $state->notes('line') =~ SRVRMGR_PROMPT );
 
                 },
                 list_comp_types => sub { return 1; }
@@ -123,23 +249,23 @@ sub get_fsa {
             message => 'prompt found'
         },
         list_params => {
-            do => sub {
+            label    => 'parses output from a list params command',
+            on_enter => sub {
                 my $state = shift;
-
-                $state->notes('parser')->set_buffer($state);
-
+                $state->notes( is_cmd_changed => 0 );
+                $state->notes( is_data_wanted => 1 );
             },
             on_exit => sub {
+
                 my $state = shift;
-                $state->notes('parser')->is_cmd_changed(0);
+                $state->notes( is_data_wanted => 0 );
+
             },
             rules => [
                 command_submission => sub {
 
                     my $state = shift;
-
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    return ( $state->notes('line') =~ SRVRMGR_PROMPT );
 
                 },
                 list_params => sub { return 1; }
@@ -147,23 +273,23 @@ sub get_fsa {
             message => 'prompt found'
         },
         list_comp_def => {
-            do => sub {
+            label    => 'parses output from a list comp def command',
+            on_enter => sub {
                 my $state = shift;
-
-                $state->notes('parser')->set_buffer($state);
-
+                $state->notes( is_cmd_changed => 0 );
+                $state->notes( is_data_wanted => 1 );
             },
             on_exit => sub {
+
                 my $state = shift;
-                $state->notes('parser')->is_cmd_changed(0);
+                $state->notes( is_data_wanted => 0 );
+
             },
             rules => [
                 command_submission => sub {
 
                     my $state = shift;
-
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    return ( $state->notes('line') =~ SRVRMGR_PROMPT );
 
                 },
                 list_comp_def => sub { return 1; }
@@ -171,23 +297,23 @@ sub get_fsa {
             message => 'prompt found'
         },
         list_tasks => {
-            do => sub {
+            label    => 'parses output from a list tasks command',
+            on_enter => sub {
                 my $state = shift;
-
-                $state->notes('parser')->set_buffer($state);
-
+                $state->notes( is_cmd_changed => 0 );
+                $state->notes( is_data_wanted => 1 );
             },
             on_exit => sub {
+
                 my $state = shift;
-                $state->notes('parser')->is_cmd_changed(0);
+                $state->notes( is_data_wanted => 0 );
+
             },
             rules => [
                 command_submission => sub {
 
                     my $state = shift;
-
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    return ( $state->notes('line') =~ SRVRMGR_PROMPT );
 
                 },
                 list_tasks => sub { return 1; }
@@ -195,23 +321,23 @@ sub get_fsa {
             message => 'prompt found'
         },
         list_servers => {
-            do => sub {
+            label    => 'parses output from a list servers command',
+            on_enter => sub {
                 my $state = shift;
-
-                $state->notes('parser')->set_buffer($state);
-
+                $state->notes( is_cmd_changed => 0 );
+                $state->notes( is_data_wanted => 1 );
             },
             on_exit => sub {
+
                 my $state = shift;
-                $state->notes('parser')->is_cmd_changed(0);
+                $state->notes( is_data_wanted => 0 );
+
             },
             rules => [
                 command_submission => sub {
 
                     my $state = shift;
-
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    return ( $state->notes('line') =~ SRVRMGR_PROMPT );
 
                 },
                 list_servers => sub { return 1; }
@@ -219,23 +345,23 @@ sub get_fsa {
             message => 'prompt found'
         },
         load_preferences => {
-            do => sub {
+            label    => 'parses output from a load preferences command',
+            on_enter => sub {
                 my $state = shift;
-
-                $state->notes('parser')->set_buffer($state);
-
+                $state->notes( is_cmd_changed => 0 );
+                $state->notes( is_data_wanted => 1 );
             },
             on_exit => sub {
+
                 my $state = shift;
-                $state->notes('parser')->is_cmd_changed(0);
+                $state->notes( is_data_wanted => 0 );
+
             },
             rules => [
                 command_submission => sub {
 
                     my $state = shift;
-
-                    return ( $state->notes('line') =~
-                          $state->notes('parser')->get_prompt_regex() );
+                    return ( $state->notes('line') =~ SRVRMGR_PROMPT );
 
                 },
                 load_preferences => sub { return 1; }
@@ -255,9 +381,7 @@ sub get_fsa {
 
                 }
 
-                my $cmd =
-                  ( $state->notes('line') =~
-                      $state->notes('parser')->get_prompt_regex() )[1];
+                my $cmd = ( $state->notes('line') =~ SRVRMGR_PROMPT )[1];
 
                 if ( ( defined($cmd) ) and ( $cmd ne '' ) ) {
 
@@ -265,7 +389,12 @@ sub get_fsa {
                     $cmd =~ s/^\s+//;
                     $cmd =~ s/\s+$//;
 
-                    $state->notes('parser')->set_last_command($cmd);
+                    $logger->debug("last_command set with '$cmd'")
+                      if $logger->is_debug();
+
+                    $state->notes( last_command   => $cmd );
+                    $state->notes( is_cmd_changed => 1 );
+
                 }
                 else {
 
@@ -276,7 +405,9 @@ sub get_fsa {
                               . $state->notes('line_num') );
 
                     }
-                    $state->notes('parser')->set_last_command('');
+
+                    $state->notes( last_command   => '' );
+                    $state->notes( is_cmd_changed => 1 );
 
                 }
 
@@ -286,9 +417,7 @@ sub get_fsa {
 
                     my $state = shift;
 
-                    if ( $state->notes('parser')->get_last_command() eq
-                        'list comp' )
-                    {
+                    if ( $state->notes('last_command') eq 'list comp' ) {
 
                         return 1;
 
@@ -304,14 +433,9 @@ sub get_fsa {
 
                     my $state = shift;
 
-                    if (
-                        (
-                            $state->notes('parser')->get_last_command() eq
-                            'list comp types'
-                        )
-                        or ( $state->notes('parser')->get_last_command() eq
-                            'list comp type' )
-                      )
+                    if ( ( $state->notes('last_command') eq 'list comp types' )
+                        or
+                        ( $state->notes('last_command') eq 'list comp type' ) )
                     {
 
                         return 1;
@@ -328,9 +452,7 @@ sub get_fsa {
 
                     my $state = shift;
 
-                    if ( $state->notes('parser')->get_last_command() =~
-                        $ls_params_regex )
-                    {
+                    if ( $state->notes('last_command') =~ $ls_params_regex ) {
 
                         return 1;
 
@@ -346,9 +468,7 @@ sub get_fsa {
 
                     my $state = shift;
 
-                    if ( $state->notes('parser')->get_last_command() =~
-                        $ls_tasks_regex )
-                    {
+                    if ( $state->notes('last_command') =~ $ls_tasks_regex ) {
 
                         return 1;
 
@@ -364,9 +484,7 @@ sub get_fsa {
 
                     my $state = shift;
 
-                    if ( $state->notes('parser')->get_last_command() =~
-                        $ls_servers_regex )
-                    {
+                    if ( $state->notes('last_command') =~ $ls_servers_regex ) {
 
                         return 1;
 
@@ -382,8 +500,7 @@ sub get_fsa {
 
                     my $state = shift;
 
-                    if ( $state->notes('parser')->get_last_command() =~
-                        $ls_comp_defs_regex )
+                    if ( $state->notes('last_command') =~ $ls_comp_defs_regex )
                     {
 
                         return 1;
@@ -400,9 +517,7 @@ sub get_fsa {
 
                     my $state = shift;
 
-                    if ( $state->notes('parser')->get_last_command() eq
-                        'load preferences' )
-                    {
+                    if ( $state->notes('last_command') eq 'load preferences' ) {
 
                         return 1;
 
@@ -418,7 +533,7 @@ sub get_fsa {
 
                     my $state = shift;
 
-                    if ( $state->notes('parser')->get_last_command() eq '' ) {
+                    if ( $state->notes('last_command') eq '' ) {
 
                         return 1;
 
@@ -440,36 +555,58 @@ sub get_fsa {
         }
     );
 
-    return $fsa;
+    return $self;
+
+}
+
+=pod
+
+=head2 free_refs
+
+This methods eliminates all circular references that version 0.31 of L<FSA::Rules> has, which makes it impossible to call the C<DESTROY>
+before the program termination.
+
+It should be invoked before program termination, possibly also in C<DESTROY> and C<DEMOLISH> methods of objects to give to the Perl interpreter a change
+to release memory by calling the related C<DESTROY> methods of L<FSA::Rules> and L<FSA::State> instances.
+
+=cut
+
+sub free_refs {
+
+    my $self = shift;
+
+    my $machines = \%FSA::Rules::machines;
+
+    foreach my $state ( keys %{ $machines->{$self}->{table} } ) {
+
+        $machines->{$self}->{table}->{$state} = undef;
+        delete $machines->{$self}->{table}->{$state};
+
+    }
+
+    $self->{done} = undef;
+    $machines->{$self}->{self} = undef;
+
+    my $all_states = \%FSA::Rules::states;
+
+    foreach my $state ( @{ $self->states } ) {
+
+        $all_states->{$state}->{machine} = undef;
+        delete $all_states->{$state}->{machine};
+
+        for ( my $i = 0 ; $i <= $#{ $all_states->{$state}->{rules} } ; $i++ ) {
+
+            $all_states->{$state}->{rules}->[$i]->{state} = undef;
+
+        }
+
+    }
 
 }
 
 1;
 
-__END__
-
 =pod
-
-=head1 NAME
-
-Siebel::Srvrmgr::ListParser::FSA - creates an instance of a FSA::Rules classes with definitions for Siebel::Srvrmgr::ListParser
-
-=head1 DESCRIPTION
-
-This package was created only to remove code expecific of L<FSA::Rules> to another package to easy debugging, so it's not intended to be used outside
-the scope of C<parse> method from L<Siebel::Srvrmgr::ListParser> class.
-
-=head1 CLASS METHODS
-
-=head2 get_fsa
-
-Expects as a parameter a L<Log::Log4perl> object.
-
-Returns a L<FSA::Rules> object with definitions as required by L<Siebel::Srvrmgr::ListParser> class.
-
-=head1 EXPORTS
-
-Nothing. But see C<get_fsa> class method.
 
 =head1 SEE ALSO
 
@@ -485,13 +622,20 @@ L<FSA::Rules>
 
 =back
 
+=head1 CAVEATS
+
+This class has some problems, most due the API of L<FSA::Rules>: since the state machine is a group of references to subroutines, it holds references
+to L<Siebel::Srvrmgr::ListParser>, which basically causes circular references between the two classes.
+
+There is some workaround to the caused memory leaks due this configuration, but in future releases L<FSA::Rules> may be replaced to something else.
+
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2013 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 This file is part of Siebel Monitoring Tools.
 

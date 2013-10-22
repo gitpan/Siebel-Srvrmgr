@@ -6,14 +6,6 @@ package Siebel::Srvrmgr::Exporter::ListCompTypes;
 
 Siebel::Srvrmgr::Daemon::Action::ListCompTypes - subclass for parsing list comp types command output
 
-=head1 SYNOPSIS
-
-    use Siebel::Srvrmgr::Daemon::Action::ListCompTypes;
-    my $action = Siebel::Srvrmgr::Daemon::Action::ListCompTypes->new({  parser => Siebel::Srvrmgr::ListParser->new(), 
-                                                                        params => [$myDumpFile]});
-
-    $action->do(\@output);
-
 =cut
 
 use Moose;
@@ -27,7 +19,7 @@ extends 'Siebel::Srvrmgr::Daemon::Action';
 =head1 DESCRIPTION
 
 This subclass of L<Siebel::Srvrmgr::Daemon::Action> will try to find a L<Siebel::Srvrmgr::ListParser::Output::ListCompTypes> object in the given array reference
-given as parameter to the C<do> method and stores the parsed data from this object in a serialized file. 
+given as parameter to the C<do> method and stores the parsed data from this object in a L<Siebel::Srvrmgr::Daemon::ActionStash> object.
 
 =head1 METHODS
 
@@ -35,35 +27,26 @@ given as parameter to the C<do> method and stores the parsed data from this obje
 
 This method is overrided from the superclass method, that is still called to validate parameter given.
 
-It will search in the array reference given as parameter: the first object found is serialized to the filesystem
-and the function returns 1 in this case. Otherwise it will return 0.
+It will search in the array reference given as parameter: the first object found is stored and the function will return 1 in this case.
+Otherwise it will return 0.
 
 =cut
 
-override 'do' => sub {
+# :TODO:11-10-2013:arfreitas: all those subclasses of Action does the same thing in do_parsed, refactor
+# the sub to a generic one that uses a new attribute of type for checking
+override 'do_parsed' => sub {
 
-    my $self   = shift;
-    my $buffer = shift;    # array reference
+    my $self = shift;
+    my $obj  = shift;
 
-    super();
+    if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListCompTypes') ) {
 
-    my $stash = Siebel::Srvrmgr::Daemon::ActionStash->instance();
+        my $stash = Siebel::Srvrmgr::Daemon::ActionStash->instance();
+        $stash->set_stash( [ $obj->get_data_parsed() ] );
 
-    $self->get_parser()->parse($buffer);
+        return 1;
 
-    my $tree = $self->get_parser()->get_parsed_tree();
-
-    foreach my $obj ( @{$tree} ) {
-
-        if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListCompTypes') ) {
-
-            $stash->set_stash( $obj->get_data_parsed() );
-
-            return 1;
-
-        }
-
-    }    # end of foreach block
+    }
 
     return 0;
 
@@ -73,7 +56,7 @@ override 'do' => sub {
 
 =head1 SEE ALSO
 
-=over 4
+=over 3 
 
 =item *
 
@@ -81,15 +64,11 @@ L<Siebel::Srvrgmr::Daemon::Action>
 
 =item *
 
-L<Storable>
-
-=item *
-
 L<Siebel::Srvrmgr::ListParser::Output::ListCompDef>
 
 =item *
 
-L<Siebel::Srvrmgr::Daemon::Action::Serializable>
+L<Siebel::Srvrmgr::Daemon::ActionStash>
 
 =back
 

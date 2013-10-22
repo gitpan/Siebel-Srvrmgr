@@ -3,7 +3,8 @@ use strict;
 use File::Spec;
 use Siebel::Srvrmgr::ListParser;
 use Cwd;
-use Test::More tests => 11;
+use Test::More;
+use Socket qw(:crlf);
 
 my $output_filename = '8.1.1.5_21229.txt';
 
@@ -13,12 +14,18 @@ open( my $in, '<', $path ) or die "Cannot read $path: $!\n";
 
 my @data;
 
-while (<$in>) {
+{
+	
+	local $/ = LF;
 
-    s/\r\n$//;
-    s/\n$//;
-    push( @data, $_ );
+	while (<$in>) {
 
+		s/$CR?$LF/\n/;
+		chomp();
+		push( @data, $_ );
+
+	}
+		
 }
 
 close($in);
@@ -30,24 +37,44 @@ $parser->parse( \@data );
 my $res = $parser->get_parsed_tree();
 
 my @expected = (
-    'Siebel::Srvrmgr::ListParser::Output::Greetings',
     'Siebel::Srvrmgr::ListParser::Output::LoadPreferences',
     'Siebel::Srvrmgr::ListParser::Output::ListComp',
     'Siebel::Srvrmgr::ListParser::Output::ListCompTypes',
     'Siebel::Srvrmgr::ListParser::Output::ListParams',
     'Siebel::Srvrmgr::ListParser::Output::ListParams',
     'Siebel::Srvrmgr::ListParser::Output::ListCompDef',
+    'Siebel::Srvrmgr::ListParser::Output::ListCompDef',
     'Siebel::Srvrmgr::ListParser::Output::ListTasks',
     'Siebel::Srvrmgr::ListParser::Output::ListTasks',
     'Siebel::Srvrmgr::ListParser::Output::ListServers'
 );
 
+# + the tests below
+plan tests => ( scalar(@expected) + 7 );
+
 is( scalar( @{$res} ),
     scalar(@expected), 'the expected number of parsed objects is returned' );
 
+isa_ok( $parser->get_enterprise(),
+    'Siebel::Srvrmgr::ListParser::Output::Greetings' );
+is( $parser->get_enterprise()->get_version(),
+    '8.1.1.5', 'enterprise attribute has the correct version' );
+is( $parser->get_enterprise()->get_patch(),
+    '21229', 'enterprise attribute has the correct patch number' );
+is( $parser->get_enterprise()->get_patch(),
+    '21229', 'enterprise attribute has the correct patch number' );
+is( $parser->get_enterprise()->get_total_servers(),
+    4, 'enterprise attribute returns the correct number of servers' );
+is(
+    $parser->get_enterprise()->get_total_servers(),
+    $parser->get_enterprise()->get_total_conn(),
+'enterprise attribute has the correct number of servers and connected servers'
+);
+
 SKIP: {
 
-    skip 'number of parsed objects must be equal to the expected', 9
+    skip 'number of parsed objects must be equal to the expected',
+      scalar(@expected)
       unless ( ( scalar( @{$res} ) ) == ( scalar(@expected) ) );
 
     for ( my $i = 0 ; $i < scalar(@expected) ; $i++ ) {

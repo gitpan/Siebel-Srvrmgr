@@ -1,7 +1,7 @@
 package Siebel::Srvrmgr::ListParser::Output::ListParams;
 use Moose;
 use namespace::autoclean;
-use feature qw(switch);
+use Carp;
 
 =pod
 
@@ -112,32 +112,43 @@ sub _set_details {
 
     if ( defined( $self->get_cmd_line() ) ) {
 
-        given ( $self->get_cmd_line() ) {
+      SWITCH: {
 
-            when ('list params') {
+            if ( $self->get_cmd_line() eq 'list params' ) {
                 $self->_set_server('connected server');
                 $self->_set_comp_alias('N/A');
+                last SWITCH;
             }
-            when (/^list\sparams\sfor\scomponent\s\w+$/) {
+            if (
+                $self->get_cmd_line() =~ /^list\sparams\sfor\scomponent\s\w+$/ )
+            {
                 $self->_set_server('connected server');
                 $self->_set_comp_alias(
                     ( split( /\s/, $self->get_cmd_line() ) )[-1] );
+                last SWITCH;
             }
-            when (/^list\sparams\sfor\sserver\s\w+$/) {
+            if ( $self->get_cmd_line() =~ /^list\sparams\sfor\sserver\s\w+$/ ) {
                 $self->_set_server(
                     ( split( /\s/, $self->get_cmd_line() ) )[-1] );
                 $self->_set_comp_alias('N/A');
+                last SWITCH;
             }
-            when (/^list\sparams\sfor\sserver\s\w+\scomponent\s\w+$/) {
+            if ( $self->get_cmd_line() =~
+                /^list\sparams\sfor\sserver\s\w+\scomponent\s\w+$/ )
+            {
 
                 my @values = split( /\s/, $self->get_cmd_line() );
 
                 $self->_set_server( $values[4] );
                 $self->_set_comp_alias( $values[6] );
+                last SWITCH;
 
             }
-
-            default { die "got strange list params command: cannot parse"; }
+            else {
+                confess 'got strange list params command: ('
+                  . $self->get_cmd_line()
+                  . ') do not know what do with it';
+            }
 
         }
 
@@ -156,6 +167,10 @@ Execute the method C<_set_details> right after object creation.
 sub BUILD {
 
     my $self = shift;
+
+    confess 'cmd_line attribute must have a string as a value, not ['
+      . $self->get_cmd_line() . ']'
+      unless ( $self->get_cmd_line() =~ /^\w+/ );
 
     $self->_set_details();
 
@@ -226,11 +241,11 @@ L<Storable>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>.
 
 This file is part of Siebel Monitoring Tools.
 
@@ -245,7 +260,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
+along with Siebel Monitoring Tools.  If not, see L<http://www.gnu.org/licenses/>.
 
 =cut
 
