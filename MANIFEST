@@ -1,3 +1,4 @@
+ChangeLog
 examples/.Siebel_svrmgr.pref
 examples/lists_cmd.txt
 examples/Siebel-Srvrmgr-Exporter/Changes
@@ -16,8 +17,8 @@ examples/Siebel-Srvrmgr-Exporter/t/Siebel-Srvrmgr-Exporter.t
 examples/Siebel-Srvrmgr-Nagios/Changes
 examples/Siebel-Srvrmgr-Nagios/commands.cfg
 examples/Siebel-Srvrmgr-Nagios/comp_mon.pl
-examples/Siebel-Srvrmgr-Nagios/comp_mon.xml
 examples/Siebel-Srvrmgr-Nagios/comp_mon.xsd
+examples/Siebel-Srvrmgr-Nagios/example.xml
 examples/Siebel-Srvrmgr-Nagios/lib/Siebel/Srvrmgr/Nagios.pm
 examples/Siebel-Srvrmgr-Nagios/lib/Siebel/Srvrmgr/Nagios/Config.pm
 examples/Siebel-Srvrmgr-Nagios/lib/Siebel/Srvrmgr/Nagios/Server.pm
@@ -33,6 +34,7 @@ examples/Siebel-Srvrmgr-Nagios/t/data/ok.xml
 examples/Siebel-Srvrmgr-Nagios/t/pod-coverage.t
 examples/Siebel-Srvrmgr-Nagios/t/pod.t
 examples/Siebel-Srvrmgr-Nagios/t/Siebel-Srvrmgr-Nagios.t
+examples/Siebel-Srvrmgr-Nagios/test.xml
 gpl.txt
 inc/Devel/AssertOS.pm
 inc/Devel/AssertOS/AIX.pm

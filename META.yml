@@ -5,8 +5,8 @@ author:
 build_requires:
   Class::Data::Inheritable: 0.08
   Config::Tiny: 2.14
+  ExtUtils::MakeMaker: 0
   Test::Class: 0.36
-  Test::Exception: 0.27
   Test::Moose: 2.0801
   Test::Most: 0.25
   Test::Pod: 1.22
@@ -41,4 +41,4 @@ resources:
   homepage: http://code.google.com/p/siebel-monitoring-tools/
   license: http://www.gnu.org/licenses/gpl.txt
   repository: http://code.google.com/p/siebel-monitoring-tools/source/browse/
-version: 0.10
+version: 0.11
