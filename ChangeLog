@@ -1,74 +1,20 @@
-2013-10-31 16:57  alceu.freitas.jr@gmail.com
+2014-04-16 22:19  alceu.freitas.jr@gmail.com
 
-	  updated Pod of Bundle added required attributes validation to Siebel::Srvrmgr:Daemon
-	  include test to verify if attributes are being validated as expected
-	  updated Pod of Siebel::Srvrmgr::ListParser::Output
+	* ., inc, inc/Devel, inc/Devel/AssertOS, inc/Devel/AssertOS.pm,
+	  inc/Devel/AssertOS/AIX.pm, inc/Devel/AssertOS/HPUX.pm,
+	  inc/Devel/AssertOS/Linux.pm, inc/Devel/AssertOS/MSWin32.pm,
+	  inc/Devel/AssertOS/Solaris.pm, inc/Devel/CheckOS.pm: added to
+	  simplify distribution creation
 
-2013-10-29 16:44  alceu.freitas.jr@gmail.com
+2014-04-15 03:27  alceu.freitas.jr@gmail.com
 
-	  bug fixes added new tests to check for those bugs
-	  fixed minor mispellings in Pod
-	  added new method set_my_data() to Test::Siebel::Srvrmgr
-
-2013-10-28 11:46  alceu.freitas.jr@gmail.com
-
-	  updated the regex of srvrmgr prompt to include "_" and "-" as the Siebel
-	  server name
-
-2013-10-22 22:14  alceu.freitas.jr@gmail.com
-
-	  list of requirements were updated
-
-2013-10-21 23:03  alceu.freitas.jr
-
-	  - fixed minor bug due changes in the Moose Roles
-	  Siebel::Srvrmgr::Daemon::Action::CheckComps::Component and
-	  Siebel::Srvrmgr::Daemon::Action::CheckComps::Server
-
-2013-10-21 22:35  alceu.freitas.jr@gmail.com
-
-	  bug fix due API change
-
-2013-10-21 17:55  alceu.freitas.jr
-
-	  -bugs fixes
-	  -improved error message in Exception/CacheFailure.pm
-
-2013-10-21 14:50  alceu.freitas.jr@gmail.com
-
-	  - fixed minor bug in test
-	  - improve messages returned from xmlrpc-client
-	  - fixed bug due API change in CheckComps.pm
-
-2013-10-21 13:59  alceu.freitas.jr@gmail.com
-	  -more fixes due API changes
-	  -fixed minor bugs in Light.pm
-
-2013-10-21 13:36  alceu.freitas.jr
-
-	  - fixed minor bug due changes in the Moose Role
-	  Siebel::Srvrmgr::Daemon::Action::CheckComps::Component
-
-2013-10-18 21:00  alceu.freitas.jr@gmail.com
-
-		-refactoring, adding more validations
-	  -added additional tests
-	  -moved all type constraints to Siebel::Srvrmgr::Types package
-
-2013-10-16 04:06  alceu.freitas.jr
-
-		-replaced old nsclient configuration file with the newer one (which has a
-	  different syntax)
-
-2013-10-15 21:08  alceu.freitas.jr
-
-	  - bug fixes on Siebel-Srvrmgr-Nagios
-	  - added more validations on Srvrmgr/Daemon.pm
-	  - Siebel::Srvrmgr::Daemon::Light now dies if the returned parsed
-	  tree is invalid
-	  - added more tests for Siebel::Srvrmgr::Nagios/Config.pm
-
-2013-10-15 14:47  alceu.freitas.jr@gmail.com
-
-	  update minimum perl version required
+	* MANIFEST, Makefile.PL, lib/Siebel/Srvrmgr.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Action/CheckComps.pm,
+	  lib/Siebel/Srvrmgr/Daemon/Light.pm,
+	  lib/Siebel/Srvrmgr/ListParser/FSA.pm: Fixed bug in
+	  Siebel::Srvrmgr::Daemon::Light when reading output from srvrmgr
+	  in UTF-8 with BOM
+	  Fixed minor bug in Siebel::Srvrmgr::ListParser::FSA regarding
+	  "list comp" variations
+	  Updated project configurations and metadata
 

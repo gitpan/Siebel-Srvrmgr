@@ -1,4 +1,3 @@
-ChangeLog
 examples/.Siebel_svrmgr.pref
 examples/lists_cmd.txt
 examples/Siebel-Srvrmgr-Exporter/Changes
@@ -180,5 +179,6 @@ t/Test/Siebel/Srvrmgr/ListParser/Output/LoadPreferences.pm
 t/Test/Siebel/Srvrmgr/ListParser/OutputFactory.pm
 t/Test/Siebel/Srvrmgr/Server.pm
 t/Test/Siebel/Srvrmgr/Task.pm
+ChangeLog
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)
