@@ -42,4 +42,4 @@ resources:
   homepage: http://code.google.com/p/siebel-monitoring-tools/
   license: http://www.gnu.org/licenses/gpl.txt
   repository: http://code.google.com/p/siebel-monitoring-tools/source/browse/
-version: v0.11.2
+version: '0.12'
