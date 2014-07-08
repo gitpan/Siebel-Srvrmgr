@@ -138,7 +138,7 @@ sub run {
     weaken($logger);
     $logger->info('Starting run method');
 
-    my $parser = Siebel::Srvrmgr::ListParser->new();
+    my $parser = $self->create_parser();
 
     if ( $logger->is_debug() ) {
 
@@ -154,12 +154,12 @@ sub run {
     $self->_check_system( $logger, ${^CHILD_ERROR_NATIVE}, $ret_code, $? );
 
     my $in;
-
-    eval { open_bom( $in, $self->get_output_file(),':utf8' ) };
+    eval { open_bom( $in, $self->get_output_file(), ':utf8' ) };
 
     if ($@) {
 
-      $logger->logdie( 'Cannot read ' . $self->get_output_file() . ': ' . $@ );
+        $logger->logdie(
+            'Cannot read ' . $self->get_output_file() . ': ' . $@ );
 
     }
 
@@ -237,8 +237,6 @@ sub run {
 =pod
 
 =head2 cmds_vs_tree
-
-Expects the number of parsed nodes as parameter.
 
 This method compares the number of C<commands> defined in a instance of this class with the number of nodes passed as parameter.
 

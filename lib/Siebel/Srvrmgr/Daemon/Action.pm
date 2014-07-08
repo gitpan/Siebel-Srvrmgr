@@ -82,12 +82,41 @@ This attribute is read-only.
 
 =cut
 
+# :TODO:19-01-2014:: add a method to remove the params reference when desired to release memory
+
 has params => (
     isa     => 'ArrayRef',
     is      => 'ro',
     reader  => 'get_params',
     default => sub { [] }
 );
+
+=pod
+
+=head2 expected_output
+
+A string telling the expected output type the L<Siebel::Srvrmgr::Daemon::Action> subclass expectes to find. This is a lazy attribute since each subclass may have a
+different type of expected output.
+
+The string may be anything related to L<Siebel::Srvrmgr::ListParser::Output> subclasses and it will be used for validation during execution of C<do_parsed> method.
+
+=cut
+
+has expected_output => (
+    isa     => 'Str',
+    is      => 'ro',
+    reader  => 'get_exp_output',
+    writer  => '_set_exp_output',
+    builder => '_build_exp_output',
+    lazy    => 1                      #some subclasses will not use it
+);
+
+sub _build_exp_output {
+
+    confess
+'subclasses of Siebel::Srvrmgr::Daemon::Action must overrided _build_exp_output';
+
+}
 
 =pod
 
@@ -126,7 +155,7 @@ This method does:
 
 sub do {
 
-    my $self = shift;
+    my $self   = shift;
     my $buffer = shift;
 
     $self->get_parser()->parse($buffer);
@@ -137,7 +166,7 @@ sub do {
 
     foreach my $item ( @{$tree} ) {
 
-        $was_found = $self->do_parsed( $item );
+        $was_found = $self->do_parsed($item);
         last if ($was_found);
 
     }
@@ -207,7 +236,7 @@ Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 This file is part of Siebel Monitoring Tools.
 

@@ -14,7 +14,7 @@ build_requires:
 configure_requires:
   ExtUtils::MakeMaker: '0'
 dynamic_config: 1
-generated_by: 'ExtUtils::MakeMaker version 6.96, CPAN::Meta::Converter version 2.120630'
+generated_by: 'ExtUtils::MakeMaker version 6.98, CPAN::Meta::Converter version 2.141170'
 license: open_source
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -34,6 +34,7 @@ requires:
   MooseX::FollowPBP: '0.05'
   MooseX::Singleton: '0.27'
   MooseX::Storage: '0.33'
+  String::BOM: '0.3'
   YAML::Syck: '1.25'
   namespace::autoclean: '0.13'
   perl: '5.008009'
@@ -42,4 +43,4 @@ resources:
   homepage: http://code.google.com/p/siebel-monitoring-tools/
   license: http://www.gnu.org/licenses/gpl.txt
   repository: http://code.google.com/p/siebel-monitoring-tools/source/browse/
-version: '0.12'
+version: '0.13'

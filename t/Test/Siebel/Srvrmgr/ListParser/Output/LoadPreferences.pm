@@ -1,8 +1,7 @@
 package Test::Siebel::Srvrmgr::ListParser::Output::LoadPreferences;
 
 use Test::Most;
-use Test::Moose qw(has_attribute_ok);
-use base qw(Test::Siebel::Srvrmgr::ListParser::Output);
+use parent qw(Test::Siebel::Srvrmgr::ListParser::Output);
 
 sub get_data_type {
 
@@ -16,31 +15,27 @@ sub get_cmd_line {
 
 }
 
-sub class_attributes : Test(+1) {
+sub class_attributes : Test(no_plan) {
 
     my $test = shift;
 
-    has_attribute_ok( $test->get_output(), 'location' );
+    $test->SUPER::class_attributes( ['location'] );
 
 }
 
-sub class_methods : Tests(+2) {
+sub class_methods : Tests(+1) {
 
     my $test = shift;
 
-    can_ok( $test->get_output(), qw(get_location set_location) );
+    $test->SUPER::class_methods( [qw(get_location set_location)] );
 
     is(
         $test->get_output()->get_location(),
-        'C:\Siebel\8.0\web client\BIN\.Siebel_svrmgr.pref',
+        '/opt/oracle/app/product/8.0.0/siebel_1/siebsrvr/bin/.Siebel_svrmgr.pref',
         'get_location returns the correct data'
     );
 
 }
 
 1;
-
-__DATA__
-srvrmgr:SUsrvr> load preferences
-File: C:\Siebel\8.0\web client\BIN\.Siebel_svrmgr.pref
 

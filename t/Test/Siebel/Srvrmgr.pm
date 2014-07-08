@@ -1,10 +1,40 @@
 package Test::Siebel::Srvrmgr;
 
 use Test::More;
-use base qw(Test::Class Class::Data::Inheritable);
+use File::Spec;
+use String::BOM qw(string_has_bom strip_bom_from_string);
+use parent qw(Test::Class Class::Data::Inheritable);
+use Carp;
 
 BEGIN {
     __PACKAGE__->mk_classdata('class');
+}
+
+sub new {
+
+    my $class      = shift;
+    my $params_ref = shift;
+    my $self;
+
+    if ( defined($params_ref) ) { # ones that use get_my_data
+
+        confess "must receive an hash reference as parameter"
+          unless ( ref($params_ref) eq 'HASH' );
+
+        $params_ref->{output_file} =
+          File::Spec->catfile( @{ $params_ref->{output_file} } );
+
+        $self = $class->SUPER::new( %{$params_ref} );
+
+    }
+    else {
+
+        $self = $class->SUPER::new();
+
+    }
+
+    return $self;
+
 }
 
 sub startup : Test( startup => 1 ) {
@@ -20,11 +50,11 @@ sub startup : Test( startup => 1 ) {
 
 }
 
-sub set_my_data {
+sub get_output_file {
 
-    my $self = shift;
+    my $test = shift;
 
-    $self->{data} = shift;
+    return $test->{output_file};
 
 }
 
@@ -32,42 +62,32 @@ sub get_my_data {
 
     my $test = shift;
 
-    if ( exists( $test->{data} ) ) {
+    my $file = $test->get_output_file();
 
-        return $test->{data};
+    confess "Don't have a defined file to read!" unless ( defined($file) );
 
-    }
-    else {
+    open( my $in, '<', $file )
+      or die "cannot read $file: $!";
 
-        my $handle = ref($test) . '::DATA';
-        my @data;
+    my @data;
 
-        while (<$handle>) {
+    while (<$in>) {
 
-# :WORKAROUND:12/08/2013 12:27:24:: new implementation of Daemon removes new lines characters from srvrmgr output
-            chomp();
-            push( @data, $_ );
-
-        }
-
-        close($handle);
-
-        if (@data) {
-
-            $test->{data} = \@data;
-            return $test->{data};
-
-        }
-
-# :WORKAROUND:25/06/2013 16:51:19:: to avoid multiple inheritance, this will support subclasses that needs dummy data to be returned
-# as Test::Siebel::Srvrmgr::Action does
-        else {
-
-            return [qw(foo bar something)];
-
-        }
+        # input text files for testing are expected to have UNIX EOL character
+        s/\012$//;
+        push( @data, $_ );
 
     }
+
+    close($in);
+
+    if ( string_has_bom( $data[0] ) ) {
+
+        $data[0] = strip_bom_from_string( $data[0] );
+
+    }
+
+    return \@data;
 
 }
 

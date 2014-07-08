@@ -8,16 +8,16 @@ Siebel::Srvrmgr::Daemon::Action::CheckComps - subclass of Siebel::Srvrmgr::Daemo
 
 =head1 SYNOPSIS
 
-    use Siebel::Srvrmgr::Daemon::Action::CheckComps;
+	use Siebel::Srvrmgr::Daemon::Action::CheckComps;
 
     my $return_data = Siebel::Srvrmgr::Daemon::ActionStash->instance();
 
     my $comps = [ {name => 'SynchMgr', ok_status => 'Running'}, { name => 'WfProcMgr', ok_status => 'Running'} ];
 
-    my $action = Siebel::Srvrmgr::Daemon::Action::CheckComps->new({  parser => Siebel::Srvrmgr::ListParser->new(), 
-                                                                     params => [ $server1, $server2 ] });
+	my $action = Siebel::Srvrmgr::Daemon::Action::CheckComps->new({  parser => Siebel::Srvrmgr::ListParser->new(), 
+																	 params => [ $server1, $server2 ] });
 
-    $action->do();
+	$action->do();
 
     # do something with $return_data
 
@@ -35,15 +35,13 @@ extends 'Siebel::Srvrmgr::Daemon::Action';
 
 =head1 DESCRIPTION
 
-This subclass of L<Siebel::Srvrmgr::Daemon::Action> will try to find a L<Siebel::Srvrmgr::ListParser::Output::ListComp> object in the given array reference
+This subclass of L<Siebel::Srvrmgr::Daemon::Action> will try to find a L<Siebel::Srvrmgr::ListParser::Output::Tabular::ListComp> object in the given array reference
 given as parameter to the C<do> method and compares the status of the components with the array reference given as parameter.
 
 The C<do> method of C<Siebel::Srvrmgr::Daemon::Action::CheckComps> uses L<Siebel::Srvrmgr::Daemon::ActionStash> to enable the program that created the object 
 instance to be able to fetch the information returned.
 
 This module was created to work close with Nagios concepts, especially regarding threshold levels (see C<new> method for more details).
-
-This class also has built-in logging features. See L<Siebel::Srvrmgr>.
 
 =head1 METHODS
 
@@ -60,7 +58,7 @@ See the C<examples> directory of this distribution, uh, examples of implementati
 
 =head2 BUILD
 
-Validates if the params array reference have objects with the L<Siebel::Srvrmgr::Daemon::Action::CheckComps::Server> role applied.
+Validates if the params array reference have objects with the L<Siebel::Srvrmgr::Daemon::Action::Check::Server> role applied.
 
 =cut
 
@@ -68,7 +66,7 @@ sub BUILD {
 
     my $self = shift;
 
-    my $role = 'Siebel::Srvrmgr::Daemon::Action::CheckComps::Server';
+    my $role = 'Siebel::Srvrmgr::Daemon::Action::Check::Server';
 
     foreach my $object ( @{ $self->get_params() } ) {
 
@@ -79,11 +77,17 @@ sub BUILD {
 
 }
 
+override '_build_exp_output' => sub {
+
+    return 'Siebel::Srvrmgr::ListParser::Output::Tabular::ListComp';
+
+};
+
 =head2 do_parsed
 
 Expects a array reference as the buffer output from C<srvrmgr> program as a parameter.
 
-This method will check the output from C<srvrmgr> program parsed by L<Siebel::Srvrmgr::ListParser::Output::ListComp> object and compare each component recovered status
+This method will check the output from C<srvrmgr> program parsed by L<Siebel::Srvrmgr::ListParser::Output::Tabular::ListComp> object and compare each component recovered status
 with the status defined in the array reference given to C<params> method during object creation.
 
 It will return 1 if this operation was executed successfuly and request a instance of L<Siebel::Srvrmgr::Daemon::ActionStash>, calling it's method C<instance> and then
@@ -91,16 +95,16 @@ C<set_stash> with a hash reference as it's content. Otherwise, the method will r
 
 The hash reference stored in the ActionStash object will have the following structure:
 
-    $VAR1 = {
-        'foobar_server' => {
-            'CompAlias1' => 0,
-            'CompAlias2' => 1
-        },
-        'foobar2_server' => {
-            'CompAlias1' => 1,
-            'CompAlias2' => 1
-        }
-    };
+	$VAR1 = {
+			  'foobar_server' => {
+								   'CompAlias1' => 0,
+								   'CompAlias2' => 1
+								 },
+			  'foobar2_server' => {
+									'CompAlias1' => 1,
+									'CompAlias2' => 1
+								  }
+			};
 
 If the servername passed during the object creation (as C<params> attribute of C<new> method) cannot be found in the buffer parameter, the object will raise an
 exception.
@@ -129,13 +133,14 @@ override 'do_parsed' => sub {
 
     my %checked_comps;
 
-    if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListComp') ) {
+    if ( $obj->isa( $self->get_exp_output ) ) {
 
         my $out_servers_ref =
           $obj->get_servers();    # servers retrieve from output of srvrmgr
 
-        confess
-"Could not fetch servers from the Siebel::Srvrmgr::ListParser::Output::ListComp object returned by the parser"
+        $logger->die( 'Could not fetch servers from the '
+              . $self->get_exp_output
+              . 'object returned by the parser' )
           unless ( scalar( @{$out_servers_ref} ) > 0 );
 
         foreach my $out_name ( @{$out_servers_ref} ) {
@@ -234,6 +239,8 @@ override 'do_parsed' => sub {
     }
     else {
 
+        $logger->debug( 'object received ISA not' . $self->get_exp_output() )
+          if ( $logger->is_debug() );
         return 0;
 
     }
@@ -265,7 +272,7 @@ override 'do_parsed' => sub {
 
 =item *
 
-L<Siebel::Srvrmgr::ListParser::Output::ListComp>
+L<Siebel::Srvrmgr::ListParser::Output::Tabular::ListComp>
 
 =item *
 
@@ -278,14 +285,6 @@ L<Siebel::Srvrmgr::Daemon::Action>
 =item *
 
 L<Siebel::Srvrmgr::Daemon::Action::Stash>
-
-=item *
-
-L<Siebel::Srvrmgr::Daemon::CheckComps::Server>
-
-=item *
-
-L<Siebel::Srvrmgr::Daemon::CheckComps::Component>
 
 =item *
 
@@ -314,7 +313,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Siebel Monitoring Tools.  If not, see <http://www.gnu.org/licenses/>.
+along with Siebel Monitoring Tools.  If not, see L<http://www.gnu.org/licenses/>.
 
 =cut
 

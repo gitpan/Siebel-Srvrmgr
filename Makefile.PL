@@ -20,6 +20,7 @@ my %config = (
         'MooseX::FollowPBP'            => 0.05,
         'Log::Log4perl'                => 1.41,
         'YAML::Syck'                   => 1.25,
+        'String::BOM'                  => 0.3,
         'File::BOM'                    => 0.14
     },
     TEST_REQUIRES => {
@@ -43,9 +44,17 @@ my %config = (
         },
     },
     dist => { SUFFIX => '.gz', COMPRESS => 'gzip --best' },
-    ABSTRACT_FROM => 'lib/Siebel/Srvrmgr.pm',    # retrieve abstract from module
-    AUTHOR    => 'Alceu Rodrigues de Freitas Junior <arfreitas@cpan.org>',
-    'LICENSE' => 'gpl',
+    (
+        $] >= 5.010
+        ?    ## Add these new keywords supported since 5.005
+          (
+            ABSTRACT_FROM =>
+              'lib/Siebel/Srvrmgr.pm',    # retrieve abstract from module
+            AUTHOR => 'Alceu Rodrigues de Freitas Junior <arfreitas@cpan.org>'
+          )
+        : ()
+    ),
+    ( $ExtUtils::MakeMaker::VERSION >= 6.3002 ? ( 'LICENSE' => 'gpl', ) : () )
 );
 
 my_WriteMakefile(%config);

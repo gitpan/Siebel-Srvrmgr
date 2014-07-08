@@ -3,7 +3,7 @@ package Siebel::Srvrmgr::Regexes;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK =
-  qw(SRVRMGR_PROMPT LOAD_PREF_RESP LOAD_PREF_CMD CONN_GREET SIEBEL_ERROR ROWS_RETURNED);
+  qw(SRVRMGR_PROMPT LOAD_PREF_RESP LOAD_PREF_CMD CONN_GREET SIEBEL_ERROR ROWS_RETURNED SIEBEL_SERVER);
 
 =pod
 
@@ -16,9 +16,9 @@ Siebel::Srvmrgr::Regexes - common regexes used by Siebel::Srvrmgr
 	use Siebel::Srvrmgr::Regexes qw(SRVRMGR_PROMPT);
 
 	if($line =~ /SRVRMGR_PROMPT/) {
-	
+
 		#do something
-	
+
 	}
 
 =head1 DESCRIPTION
@@ -39,6 +39,18 @@ sub SRVRMGR_PROMPT {
 
 }
 
+=head2 SIEBEL_SERVER
+
+Regular expression to match a valid Siebel Server name.
+
+=cut
+
+sub SIEBEL_SERVER {
+
+    return qr/^([\w\_\-]+)$/;
+
+}
+
 =pod
 
 =head2 LOAD_PREF_RESP
@@ -47,7 +59,9 @@ Regular expression to match the C<load preferences> response once the command is
 
 =cut
 
-sub LOAD_PREF_RESP { return qr/^(srvrmgr(\:[\w\_\-]+)?>)?\s?File\:\s.*\.pref$/; }
+sub LOAD_PREF_RESP {
+    return qr/^(srvrmgr(\:[\w\_\-]+)?>)?\s?File\:\s.*\.pref$/;
+}
 
 =pod
 
@@ -115,7 +129,7 @@ sub SIEBEL_ERROR {
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 

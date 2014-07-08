@@ -45,7 +45,7 @@ override 'do_parsed' => sub {
     my $self = shift;
     my $obj  = shift;
 
-    if ( $obj->isa('Siebel::Srvrmgr::ListParser::Output::ListCompTypes') ) {
+    if ( $obj->isa( $self->get_exp_output() ) ) {
 
         my $data = $obj->get_data_parsed();
 
@@ -62,11 +62,17 @@ override 'do_parsed' => sub {
 
 };
 
+override '_build_exp_output' => sub {
+
+    return 'Siebel::Srvrmgr::ListParser::Output::Tabular::ListCompTypes';
+
+};
+
 =pod
 
 =head1 SEE ALSO
 
-=over 4
+=over
 
 =item *
 
@@ -88,11 +94,11 @@ L<Siebel::Srvrmgr::Daemon::Action::Serializable>
 
 =head1 AUTHOR
 
-Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.org<E<gt>
+This software is copyright (c) 2012 of Alceu Rodrigues de Freitas Junior, E<lt>arfreitas@cpan.orgE<gt>
 
 This file is part of Siebel Monitoring Tools.
 
